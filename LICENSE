@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 ZimCanIT
+Copyright (c) 2026 Joshua Musiyarira (ZimCanIT)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+Attribution: the failure-mode-first methodology is inspired by TerraShark
+(github.com/LukasNiessen/terrashark, MIT). The diagnose-first routing and
+response-contract structure are inspired by Anton Babenko's terraform-skill
+(github.com/antonbabenko/terraform-skill, Apache-2.0). All reference content
+in this repository is original.

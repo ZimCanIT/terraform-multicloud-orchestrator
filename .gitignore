@@ -1,0 +1,37 @@
+# Terraform runtime artifacts
+.terraform/
+*.tfstate
+*.tfstate.backup
+tfplan
+plan_output.json
+
+# Variable files may contain secrets — commit *.tfvars.example, not *.tfvars
+*.tfvars
+*.tfvars.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tool caches
+.pre-commit-cache/
+.npm-cache/
+.tmp/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Local development notes — not for publication
+adr.md
+learning.md
+goal.md

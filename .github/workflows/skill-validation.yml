@@ -1,0 +1,30 @@
+name: skill-validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  agentskills-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Agent Skills reference validator
+        # PyPI package `skills-ref` installs a CLI named `agentskills` (source: agentskills/agentskills).
+        run: python -m pip install "skills-ref==0.1.1"
+
+      - name: Validate Agent Skill
+        run: agentskills validate plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator

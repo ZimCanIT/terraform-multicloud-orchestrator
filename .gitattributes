@@ -1,0 +1,10 @@
+# Enforce LF line endings in the repository for all text files
+* text=auto eol=lf
+
+# Shell scripts must always be LF — CRLF breaks bash on Linux/macOS CI
+*.sh text eol=lf
+
+# Explicitly binary — never touch line endings
+*.png binary
+*.jpg binary
+*.ico binary

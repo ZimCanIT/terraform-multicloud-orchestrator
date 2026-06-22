@@ -1,0 +1,44 @@
+{
+  "name": "terraform-multicloud-orchestrator",
+  "version": "0.0.1",
+  "description": "Plan-only, failure-mode-first Terraform orchestrator for AWS, Azure, GCP and OCI. Diagnoses state, identity, blast-radius and compliance risks before generating HCL.",
+  "author": {
+    "name": "Joshua Musiyarira (ZimCanIT)",
+    "url": "https://zimcanit.com"
+  },
+  "homepage": "https://github.com/ZimCanIT/terraform-multicloud-orchestrator",
+  "repository": "https://github.com/ZimCanIT/terraform-multicloud-orchestrator",
+  "license": "MIT",
+  "keywords": [
+    "terraform",
+    "opentofu",
+    "iac",
+    "aws",
+    "azure",
+    "gcp",
+    "oci",
+    "multicloud",
+    "infrastructure",
+    "hcl"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Terraform Multi-Cloud Orchestrator",
+    "shortDescription": "Plan-only Terraform authoring across AWS, Azure, GCP and OCI.",
+    "longDescription": "Diagnoses identity churn, blast radius, state migration and compliance risks before generating or refactoring Terraform. Uses per-cloud references and plan-only validation; never applies or destroys infrastructure.",
+    "developerName": "Joshua Musiyarira (ZimCanIT)",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Write",
+      "Review",
+      "Validate"
+    ],
+    "websiteURL": "https://github.com/ZimCanIT/terraform-multicloud-orchestrator",
+    "defaultPrompt": [
+      "Author a secure AWS VPC module.",
+      "Review this Terraform plan for replacement risk.",
+      "Refactor this module without state churn."
+    ],
+    "brandColor": "#1F6FEB"
+  }
+}
