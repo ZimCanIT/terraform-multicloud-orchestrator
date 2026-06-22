@@ -2,6 +2,14 @@
 
 All notable changes are documented here. This project has not been published yet; the first release will be `0.0.1`.
 
+## 1.0.0 (2026-06-22)
+
+
+### Features
+
+* add terraform-multicloud-orchestrator skill at v0.0.1 ([0fba665](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/0fba66589a7de5a212b38a6db7c6e6a32cad4ab8))
+* add terraform-multicloud-orchestrator skill at v0.0.1 ([64977ad](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/64977ad7c3ccd6da5b813eed45f8b0beaa4b6b4f))
+
 ## [0.0.1] — Unreleased
 
 - Plan-only, failure-mode-first Terraform orchestrator for AWS, Azure, GCP and OCI, with per-cloud reference files loaded on demand.

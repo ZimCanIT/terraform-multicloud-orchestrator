@@ -1,6 +1,6 @@
 {
   "name": "terraform-multicloud-orchestrator",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Plan-only, failure-mode-first Terraform orchestrator for AWS, Azure, GCP and OCI. Diagnoses state, identity, blast-radius and compliance risks before generating HCL.",
   "author": {
     "name": "Joshua Musiyarira (ZimCanIT)",
