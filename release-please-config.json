@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "packages": {
+    ".": {
+      "package-name": "terraform-multicloud-orchestrator",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "plugins/terraform-multicloud-orchestrator/.claude-plugin/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "plugins/terraform-multicloud-orchestrator/.codex-plugin/plugin.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    }
+  }
+}

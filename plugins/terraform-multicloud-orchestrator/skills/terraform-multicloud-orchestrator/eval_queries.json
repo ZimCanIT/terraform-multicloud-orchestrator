@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "skill": "terraform-multicloud-orchestrator",
+  "queries": [
+    {
+      "id": "train-01",
+      "split": "train",
+      "query": "Create Terraform for an AWS VPC with private subnets, NAT gateways, and secure default tags.",
+      "should_trigger": true
+    },
+    {
+      "id": "train-02",
+      "split": "train",
+      "query": "Review this azurerm provider upgrade and tell me which resources may be replaced.",
+      "should_trigger": true
+    },
+    {
+      "id": "train-03",
+      "split": "train",
+      "query": "Refactor this module from count to for_each without changing existing Terraform resource addresses.",
+      "should_trigger": true
+    },
+    {
+      "id": "train-04",
+      "split": "train",
+      "query": "Generate HCL for a GCP project network with labels, firewall rules, and least-privilege service accounts.",
+      "should_trigger": true
+    },
+    {
+      "id": "train-05",
+      "split": "train",
+      "query": "Plan an OCI compartment and VCN layout with provider version pins and no apply step.",
+      "should_trigger": true
+    },
+    {
+      "id": "train-06",
+      "split": "train",
+      "query": "My Terraform plan wants to replace an RDS instance. Explain the blast radius and recovery path.",
+      "should_trigger": true
+    },
+    {
+      "id": "train-07",
+      "split": "train",
+      "query": "Write Kubernetes manifests for a Deployment and Service.",
+      "should_trigger": false
+    },
+    {
+      "id": "train-08",
+      "split": "train",
+      "query": "Create a Python script that parses CSV files and prints summary statistics.",
+      "should_trigger": false
+    },
+    {
+      "id": "train-09",
+      "split": "train",
+      "query": "What is the difference between public and private cloud in general terms?",
+      "should_trigger": false
+    },
+    {
+      "id": "train-10",
+      "split": "train",
+      "query": "Draft a project status email for a network migration.",
+      "should_trigger": false
+    },
+    {
+      "id": "train-11",
+      "split": "train",
+      "query": "Add a moved block so renaming this resource doesn't recreate it.",
+      "should_trigger": true
+    },
+    {
+      "id": "train-12",
+      "split": "train",
+      "query": "Write an Ansible playbook to configure nginx on existing servers.",
+      "should_trigger": false
+    },
+    {
+      "id": "validation-01",
+      "split": "validation",
+      "query": "Add Terraform for an Azure storage account with private endpoints, encryption, and policy-safe defaults.",
+      "should_trigger": true
+    },
+    {
+      "id": "validation-02",
+      "split": "validation",
+      "query": "Help me split this monolithic AWS Terraform state into smaller workspaces safely.",
+      "should_trigger": true
+    },
+    {
+      "id": "validation-03",
+      "split": "validation",
+      "query": "Update these .tf files to pin the latest stable google provider without allowing a major upgrade.",
+      "should_trigger": true
+    },
+    {
+      "id": "validation-04",
+      "split": "validation",
+      "query": "Import an existing OCI load balancer into Terraform configuration using declarative import blocks.",
+      "should_trigger": true
+    },
+    {
+      "id": "validation-05",
+      "split": "validation",
+      "query": "Run terraform validate and summarize the add, change, destroy counts from the plan JSON.",
+      "should_trigger": true
+    },
+    {
+      "id": "validation-06",
+      "split": "validation",
+      "query": "Can I run terraform apply -auto-approve after this change?",
+      "should_trigger": true
+    },
+    {
+      "id": "validation-07",
+      "split": "validation",
+      "query": "Design a React dashboard for cloud cost reporting.",
+      "should_trigger": false
+    },
+    {
+      "id": "validation-08",
+      "split": "validation",
+      "query": "Explain how OAuth device flow works for a CLI.",
+      "should_trigger": false
+    },
+    {
+      "id": "validation-09",
+      "split": "validation",
+      "query": "Write a shell script to back up a local directory to a zip file.",
+      "should_trigger": false
+    },
+    {
+      "id": "validation-10",
+      "split": "validation",
+      "query": "Compare managed databases across AWS, Azure, and GCP without writing infrastructure code.",
+      "should_trigger": false
+    },
+    {
+      "id": "validation-11",
+      "split": "validation",
+      "query": "Add OPA/Sentinel policy-as-code gates and data-residency controls to this Azure Terraform stack.",
+      "should_trigger": true
+    },
+    {
+      "id": "validation-12",
+      "split": "validation",
+      "query": "Draft a CloudFormation template for an S3 bucket with versioning.",
+      "should_trigger": false
+    }
+  ]
+}

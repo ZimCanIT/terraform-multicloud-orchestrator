@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "zimcanit-marketplace",
+  "version": "0.0.1",
+  "owner": {
+    "name": "Joshua Musiyarira (ZimCanIT)",
+    "url": "https://zimcanit.com"
+  },
+  "metadata": {
+    "description": "ZimCanIT Terraform and cloud-engineering plugins for Claude Code and other AI agents.",
+    "version": "0.0.1",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "terraform-multicloud-orchestrator",
+      "source": "./plugins/terraform-multicloud-orchestrator",
+      "description": "Plan-only, failure-mode-first Terraform orchestrator for AWS, Azure, GCP and OCI. Asks once for target cloud(s) and provider-pinning strategy, then loads only the relevant per-cloud reference.",
+      "version": "0.0.1",
+      "category": "infrastructure"
+    }
+  ]
+}

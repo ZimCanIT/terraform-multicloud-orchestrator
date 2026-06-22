@@ -1,0 +1,60 @@
+minimum_pre_commit_version: "3.5.0"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-json
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: detect-private-key
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args:
+          - "--exclude-files"
+          - "\\.terraform\\.lock\\.hcl$"
+
+  - repo: local
+    hooks:
+      - id: markdownlint-cli2
+        name: markdownlint-cli2
+        language: node
+        additional_dependencies:
+          - markdownlint-cli2@0.22.1
+        entry: markdownlint-cli2
+        files: "^(README|CHANGELOG|CONTRIBUTING)\\.md$|^examples/.*\\.md$|^plugins/.*\\.md$"
+        types: [markdown]
+
+      - id: shellcheck
+        name: shellcheck
+        language: system
+        entry: shellcheck
+        files: "\\.sh$"
+        types: [shell]
+
+      - id: shfmt
+        name: shfmt
+        language: system
+        entry: shfmt -w -i 2 -ci -sr
+        files: "\\.sh$"
+        types: [shell]
+
+      - id: validate-codex-plugin
+        name: validate Codex plugin manifest
+        language: python
+        entry: python scripts/validate_codex_plugin.py
+        pass_filenames: false
+        files: "(^|/)\\.codex-plugin/plugin\\.json$|^scripts/validate_codex_plugin\\.py$"
+
+      - id: validate-skill-frontmatter
+        name: validate Agent Skill frontmatter
+        language: python
+        entry: python scripts/validate_skill_frontmatter.py
+        pass_filenames: false
+        files: "(^|/)SKILL\\.md$|^scripts/validate_skill_frontmatter\\.py$"
