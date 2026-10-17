@@ -65,8 +65,8 @@ aws-vpc/
 ```
 
 Subnets use `for_each` over an AZ→CIDR map (not `count`) so an AZ change never
-churns the index of unrelated subnets. Prose comments use British English
-(authorise, optimise). Code is presented for review before any `.tf` file is written.
+churns the index of unrelated subnets. Code is presented for review before any
+`.tf` file is written.
 
 ## Phase 3 — Validation (State-Validator)
 
