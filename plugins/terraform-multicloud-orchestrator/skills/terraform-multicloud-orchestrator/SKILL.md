@@ -8,9 +8,6 @@ metadata:
   version: "0.0.1"
   repository: https://github.com/ZimCanIT/terraform-multicloud-orchestrator
   homepage: https://github.com/ZimCanIT/terraform-multicloud-orchestrator
-  model: claude-sonnet-4-8
-  model_effort: low
-  advisor_model: claude-opus-4-8
 allowed-tools: Read Grep Glob WebFetch WebSearch Bash(terraform init:*) Bash(terraform validate:*) Bash(terraform plan:*) Bash(terraform show:*) Bash(terraform fmt:*) Bash(terraform get:*) Bash(terraform providers:*) Bash(terraform state list:*) Bash(tofu init:*) Bash(tofu validate:*) Bash(tofu plan:*) Bash(tofu show:*) Bash(tofu fmt:*) Bash(tofu get:*) Bash(tofu providers:*) Bash(tofu state list:*) Bash(jq:*) Bash(az network vnet show:*) Bash(az network vnet peering list:*) Bash(az network nsg list:*) Bash(az network nsg show:*) Bash(az account show:*) Bash(az group show:*) Bash(az resource show:*)
 ---
 
@@ -85,10 +82,6 @@ Enforce regardless of module pattern:
 - Every `variable` block carries `description`. Every `output` block carries `description`.
 - Standard file layout: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`. Reusable modules include a `README.md` at module root.
 - `terraform.tfvars` is not committed; provide `.tfvars.example` instead.
-
-### Advisor invocations
-
-When an architectural decision is in scope — converting a data source to a managed resource, choosing a lifecycle suppression strategy, evaluating whether a `moved` block is safe, or assessing whether the plan blast radius is acceptable — invoke the advisor (Opus 4.8). Fan-out parallel advisor calls when multiple independent architectural questions arise in the same turn. For routine HCL generation and plan review, the primary model (Sonnet 4.8, low effort) is sufficient.
 
 ---
 
