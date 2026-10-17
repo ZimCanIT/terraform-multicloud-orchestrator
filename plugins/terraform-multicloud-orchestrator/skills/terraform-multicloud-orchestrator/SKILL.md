@@ -105,7 +105,7 @@ Classify the task, name the failure mode(s) in scope, then load only the matchin
 
 The orchestrator plays three roles in sequence.
 
-**Phase 0 — Context discovery.** Glob the working directory tree. Brownfield (`.terraform`, `*.tf`, `providers.tf` present): ingest existing provider versions and naming conventions so new code merges cleanly; set Mode = brownfield. Greenfield (empty/new): scaffold a modular layout — a root (`versions.tf`, `providers.tf`, `main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars.example`) calling modules under `modules/`; set Mode = greenfield.
+**Phase 0 — Context discovery.** Glob the working directory tree. Brownfield (`.terraform`, `*.tf`, `providers.tf` present): ingest existing provider versions and naming conventions so new code merges cleanly; set Mode = brownfield. Greenfield (empty/new): scaffold a modular layout — a root in the standard file layout (§1 HashiCorp style) calling modules under `modules/`; set Mode = greenfield.
 
 **Phase 1 — Research (Doc-Specialist).** Verify the exact resource schema for the resolved provider version against the cloud's doc allowlist (§9). Check for deprecated attributes, required blocks, and breaking changes across the current major. Append the current year to searches to surface the latest deprecations. Record the resolved versions in SESSION CONFIG.
 
