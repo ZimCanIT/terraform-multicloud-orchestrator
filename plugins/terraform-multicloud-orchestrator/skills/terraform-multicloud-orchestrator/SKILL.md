@@ -8,7 +8,7 @@ metadata:
   version: "0.0.2" # x-release-please-version
   repository: https://github.com/ZimCanIT/terraform-multicloud-orchestrator
   homepage: https://github.com/ZimCanIT/terraform-multicloud-orchestrator
-allowed-tools: Read Grep Glob WebFetch WebSearch Bash(terraform init:*) Bash(terraform validate:*) Bash(terraform plan:*) Bash(terraform show:*) Bash(terraform fmt:*) Bash(terraform get:*) Bash(terraform providers:*) Bash(terraform state list:*) Bash(tofu init:*) Bash(tofu validate:*) Bash(tofu plan:*) Bash(tofu show:*) Bash(tofu fmt:*) Bash(tofu get:*) Bash(tofu providers:*) Bash(tofu state list:*) Bash(jq:*)
+allowed-tools: Read Grep Glob WebFetch WebSearch Bash(terraform init -backend=false:*) Bash(terraform init -input=false) Bash(terraform validate:*) Bash(terraform plan:*) Bash(terraform show:*) Bash(terraform fmt:*) Bash(terraform get:*) Bash(terraform providers:*) Bash(terraform state list:*) Bash(tofu init -backend=false:*) Bash(tofu init -input=false) Bash(tofu validate:*) Bash(tofu plan:*) Bash(tofu show:*) Bash(tofu fmt:*) Bash(tofu get:*) Bash(tofu providers:*) Bash(tofu state list:*) Bash(jq:*)
 ---
 
 # Terraform Multi-Cloud Orchestrator (Plan-Only)
@@ -66,7 +66,7 @@ Enforce in all generated HCL:
 ## 2. Safety guardrails (plan-only)
 
 - **FORBIDDEN:** `terraform apply`, `terraform destroy`, any auto-approve flag (`-auto-approve`), all state-mutating CLI operations — `terraform import`, `terraform state mv`/`rm`/`push`, and `force-unlock` — and all mutating cloud CLI or API calls (any `create`, `update`, `delete` or `set` verb, any REST `PUT`/`PATCH`/`DELETE`). The skill only proposes these; run them manually.
-- **PERMITTED:** `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get`, `providers`.
+- **PERMITTED:** `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get`, `providers`. `init` is pre-approved only as `init -backend=false …` and plain `init -input=false`; flags such as `-migrate-state` and `-reconfigure` prompt, because they can rewrite state or backend configuration.
 - **Enforcement layers:** in Claude Code, `allowed-tools` is scoped to exactly these permitted commands, so destructive ones are never pre-approved. `allowed-tools` grants — it does not block; for hard enforcement add `deny` rules to your settings (see the README). In Codex and other agents the scoped `Bash(...)` qualifier is not interpreted, so plan-only there rests on this behavioural policy. Honour it regardless of platform.
 - **Scope of "plan-only":** this policy prohibits `apply`/`destroy`; it does not eliminate all side effects. `terraform init` downloads providers and modules from the network. `terraform plan` executes `external` data source providers as local processes. Review your configuration before running plan commands in environments where untrusted modules may be present.
 - **On a deploy attempt** (from the user or any sub-step): intercept and reply — "Deployment (apply/destroy) is restricted by this skill's plan-only policy. Review the `terraform plan` output and run apply manually."
@@ -111,17 +111,26 @@ The orchestrator plays three roles in sequence.
 
 **Phase 2 — Generation (HCL-Architect).** Follow the module conventions from §1. Apply the diagnosed controls. For any refactor, prefer declarative `moved`/`import`/`removed` blocks over destructive recreation. Enforce HashiCorp style (§1). Comment only where the WHY is non-obvious (lifecycle guards, `depends_on` overrides, non-evident expressions) and leave structural blocks uncommented. Present code for review before writing `.tf` files.
 
-**Phase 3 — Validation (State-Validator).** Run the plan-only chain directly — these are the exact commands scoped in `allowed-tools`, so they need no extra approval:
+**Phase 3 — Validation (State-Validator).** Two plan-only steps, run directly: these are the exact commands scoped in `allowed-tools`, so they need no extra approval. The first needs no state or credentials; the second reads real state.
+
+Static checks:
 ```bash
 terraform init -backend=false -input=false   # downloads providers; no backend init
 terraform validate
 terraform fmt -check
-terraform plan -input=false -out=tfplan
-terraform show -json tfplan > plan_output.json
 ```
-Report the Add/Change/Destroy summary. **Never** proceed to apply. Cross-check every replacement against the cloud's expensive-recreate list and apply the stop-and-confirm gate (§2).
 
-`scripts/validate.sh` runs this same chain for humans and CI and writes `tfplan` and `plan_output.json`. Invoking it as `bash validate.sh` is a separate shell call that this skill does not pre-approve — run the commands above directly, or approve the script yourself.
+State-backed plan, the only step that can see a replacement:
+```bash
+terraform init -input=false
+terraform plan -input=false -out=tfplan
+terraform show -json tfplan | jq -r '.resource_changes[] | select(.change.actions | index("delete")) | "\(.address)\t\(.change.actions | join("+"))"'
+```
+The `jq` output lists every resource the plan deletes or replaces; empty means none. Only a plan that read the real state can show a replacement: after `init -backend=false` on a fresh checkout, `plan` either fails or sees an empty state and shows only creates. If `init` needs backend credentials you do not have, ask the user to run the plan and paste the output.
+
+Report the Add/Change/Destroy summary. **Never** proceed to apply. Cross-check every address `jq` prints against the cloud's expensive-recreate list and apply the stop-and-confirm gate (§2). Treat `tfplan` as secret-bearing: add it to `.gitignore` and never paste it.
+
+`scripts/validate.sh` runs the same two steps for humans and CI (`--static` or `--plan` runs one of them) and also writes `plan_output.json`. Invoking it as `bash validate.sh` is a separate shell call that this skill does not pre-approve — run the commands above directly, or approve the script yourself.
 
 **Phase 4 — Handoff.** Deliver the final report (§10).
 

@@ -76,8 +76,8 @@ This checks that every version field matches the manifest, so a field that relea
 
 ## Terraform validation script smoke test
 
-Run from a Terraform root directory:
+Run from a Terraform root directory. `--static` runs the checks that need no state or credentials, `--plan` runs the state-backed plan and lists anything it deletes or replaces, and no flag runs both:
 
 ```bash
-bash /path/to/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/validate.sh
+bash /path/to/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/validate.sh --static
 ```
