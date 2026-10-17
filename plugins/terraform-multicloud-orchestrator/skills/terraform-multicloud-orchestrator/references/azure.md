@@ -10,7 +10,8 @@ Providers: `hashicorp/azurerm` (primary) and `azapi` (preview/uncovered resource
 - Before any major-version transition, read the release notes and upgrade guide for the target major (`github.com/hashicorp/terraform-provider-azurerm/releases`).
 
 ## ForceNew traps (identity churn)
-- `azurerm_subnet` — `resource_group_name`, `virtual_network_name` are ForceNew.
+- Most `azurerm_*` resources force replacement when `name`, `location` or `resource_group_name` changes, so a rename or a move is a replacement: check the plan. That includes storage accounts, Key Vaults and SQL servers.
+- `azurerm_subnet` — `name`, `resource_group_name`, `virtual_network_name` are ForceNew.
 - `azurerm_linux_virtual_machine` / `azurerm_windows_virtual_machine` — `name`, `location`, `resource_group_name`, `zone`, OS-disk and image-reference changes, `vtpm_enabled`. `vm_agent_platform_updates_enabled` is read-only (v4.26.0+).
 - `azurerm_*_virtual_machine_scale_set` — `upgrade_mode` and several profile fields.
 - `azurerm_mobile_network_packet_core_control_plane` — `site_ids` marked ForceNew (v4.36.0+).
@@ -19,10 +20,10 @@ Providers: `hashicorp/azurerm` (primary) and `azapi` (preview/uncovered resource
 - Public-IP / subnet / VM pinning is the classic Azure churn source. Monitor CHANGELOG for resource-specific force-new changes.
 
 ## Expensive / slow-to-recreate — STOP and confirm
-API Management (APIM — 30–45 min recreate), VPN Gateway, ExpressRoute Gateway, Azure Firewall, App Service Environment, AKS clusters. Changing AKS `network_data_plane` (except the in-place azure → cilium reimage) or availability zones forces entire cluster replacement with significant downtime. A recreate of any of these is a long outage and often a new public IP.
+API Management (`azurerm_api_management`, 30–45 min recreate), VPN and ExpressRoute gateways (`azurerm_virtual_network_gateway`), Azure Firewall (`azurerm_firewall`), App Service Environment (`azurerm_app_service_environment_v3`), AKS clusters (`azurerm_kubernetes_cluster`), and the resources that hold data: SQL, PostgreSQL and MySQL servers (`azurerm_mssql_server`, `azurerm_postgresql_flexible_server`, `azurerm_mysql_flexible_server`), Cosmos DB accounts (`azurerm_cosmosdb_account`), storage accounts (`azurerm_storage_account`) and Key Vaults (`azurerm_key_vault`, whose name stays reserved after deletion until it is purged). Changing AKS `network_data_plane` (except the in-place azure → cilium reimage) or availability zones forces entire cluster replacement with significant downtime. A recreate of any of these is a long outage, often a new public IP, and for the data-holding ones a loss of data unless it is restored.
 
 ## Provider major-upgrade notes (state migration)
-- v3→v4: set `subscription_id`; remove the resources dropped in v4. Some resources (e.g. `azurerm_kusto_cluster`) have specific state-migration fixes — upgrade directly to the current version rather than stepping through.
+- v3→v4: set `subscription_id`; remove the resources dropped in v4. Some resources (e.g. `azurerm_kusto_cluster`) have specific state-migration fixes — go straight to the latest release of the target major rather than stepping through its intermediate releases (still one major at a time).
 - v4→v5: v5.0.0 has shipped. Read its upgrade guide, linked from the release notes (`github.com/hashicorp/terraform-provider-azurerm/releases/tag/v5.0.0`), before upgrading. CDN Classic and Front Door Classic resources block new creations as of v4.35.0; migrate to newer services.
 - Private Link DNS zone names follow `privatelink.<service-suffix>` conventions (e.g. `privatelink.blob.core.windows.net`).
 
@@ -31,7 +32,7 @@ API Management (APIM — 30–45 min recreate), VPN Gateway, ExpressRoute Gatewa
 - Tag names are case-insensitive for Azure operations; tag values are case-sensitive.
 - There is no provider-level default-tags equivalent — apply tags via a shared `locals` map, a tagging module, or a wrapper module. Perpetual diff issues can occur on tag-related properties; upgrade to a current provider release for fixes to specific resources.
 
-## Policy-managed tags (Phase 0 discovery)
+## Policy-managed tags (ask before generating)
 - Ask the user to paste `az account show` to confirm the active subscription; this skill does not pre-approve `az`, so run it yourself only if the user's settings allow it. That output cannot show whether Azure Policy modifies tags, so also ask whether it does and which tag keys it manages.
 - If Policy is active or unknown, wherever you set `tags` on an `azurerm_*` resource, also add a `lifecycle` block with `ignore_changes` covering all tag keys managed by Policy (typically `environment`, `cost_centre`, `owner`, or whatever the tenant standard prescribes — ask the user if unsure). This prevents tag drift from causing spurious plan noise or blocked applies. Do this at generation time, not reactively.
 
