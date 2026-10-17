@@ -143,14 +143,14 @@ Apply the strategy from SESSION CONFIG. General rules regardless of strategy:
 | Component | Default strategy | Example |
 |---|---|---|
 | Terraform runtime | allow minor+patch | `required_version = "~> 1.13"` |
-| Providers (root) | pin per SESSION CONFIG | `version = "~> 6.0"` |
+| Providers (root) | pin per SESSION CONFIG | `version = "~> <major>.0"` |
 | Modules (prod) | pin exact | `version = "5.1.2"` |
 | Modules (dev) | allow patch | `version = "~> 5.1.0"` |
 
 - Always commit `.terraform.lock.hcl`. It tracks **providers only** — modules re-resolve to the newest allowed version on every `init`.
 - Pre-populate cross-platform hashes so CI does not fail on a checksum mismatch:
   `terraform providers lock -platform=linux_amd64 -platform=darwin_arm64 -platform=windows_amd64`.
-- Child/reusable modules: set broad minimums (`>= 6.0`), let the **root** module resolve, to avoid diamond-dependency `init` failures.
+- Child/reusable modules: set broad minimums (`>= <major>.0`), let the **root** module resolve, to avoid diamond-dependency `init` failures.
 - Keep provider/runtime upgrades in a separate PR from functional change. Upgrade one major at a time.
 
 Never rely on a remembered provider major: resolve the current one at research time from the registry or the provider's GitHub releases.
@@ -179,7 +179,8 @@ Never rely on a remembered provider major: resolve the current one at research t
 ## 9. Doc-research domains (allowlist)
 
 Restrict provider-schema lookups to:
-- **All providers (schema source of truth):** `registry.terraform.io/providers/{hashicorp/aws, hashicorp/azurerm, hashicorp/google, oracle/oci}/latest/docs`
+- **All providers (schema source of truth):** `registry.terraform.io/providers/{hashicorp/aws, hashicorp/azurerm, Azure/azapi, hashicorp/google, oracle/oci}/<latest or the resolved version>/docs`
+- **Release notes and upgrade guides:** the providers' GitHub releases (`github.com/hashicorp/terraform-provider-{aws,azurerm,google}`, `github.com/oracle/terraform-provider-oci`)
 - **AWS:** `docs.aws.amazon.com`
 - **Azure:** `learn.microsoft.com`, `azure.github.io/Azure-Verified-Modules`
 - **GCP:** `cloud.google.com/docs`
@@ -204,7 +205,7 @@ Use `assets/final-report-template.md` as the output template.
 Cloud-agnostic mechanisms:
 - `references/identity-churn.md` — address stability, `count`/`for_each`, `moved` safety, the ForceNew principle.
 - `references/blast-radius.md` — state boundaries, environment isolation, limiting apply impact.
-- `references/migration-playbooks.md` — `moved`/`import`/`removed`, provider-upgrade and state-split playbooks.
+- `references/migration-playbooks.md` — `moved`/`import`/`removed`, provider-upgrade playbooks and cross-state moves.
 - `references/compliance-gates.md` — policy-as-code on the plan, approvals, evidence, residency.
 
 Per-cloud detail (load only those in SESSION CONFIG):
