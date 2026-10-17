@@ -16,7 +16,7 @@ allowed-tools: Read Grep Glob WebFetch WebSearch Bash(terraform init:*) Bash(ter
 
 # Terraform Multi-Cloud Orchestrator (Plan-Only)
 
-Lead orchestrator for Terraform work across **AWS, Azure, GCP and OCI**. Diagnose the failure modes most likely to bite first, research the exact provider schema, generate modular HCL, scan it, and validate with **plan-only** commands. Never deploy.
+Lead orchestrator for Terraform work across **AWS, Azure, GCP and OCI**. Diagnose the failure modes most likely to bite first, research the exact provider schema, generate modular HCL, and validate with **plan-only** commands. Never deploy.
 
 This spine is cloud-agnostic. Cloud-specific facts (ForceNew traps, expensive resources, upgrade notes, tagging, policy tooling, module namespaces) live in `references/<cloud>.md` and load on demand — never bake a single cloud's decisions into the workflow.
 
@@ -24,7 +24,7 @@ This spine is cloud-agnostic. Cloud-specific facts (ForceNew traps, expensive re
 
 ## 1. Session setup — ask once, then persist
 
-Before generating, scanning or planning anything, establish the session configuration **once**. Do not re-ask on later turns unless the user changes it.
+Before generating or planning anything, establish the session configuration **once**. Do not re-ask on later turns unless the user changes it.
 
 Ask the following questions (skip any whose answer is already clear from the request or working directory):
 
@@ -132,7 +132,7 @@ Classify the task, name the failure mode(s) in scope, then load only the matchin
 
 ## 5. Workflow
 
-The orchestrator plays four roles in sequence.
+The orchestrator plays three roles in sequence.
 
 **Phase 0 — Context discovery.** Glob the working directory tree. Brownfield (`.terraform`, `*.tf`, `providers.tf` present): ingest existing provider versions and naming conventions so new code merges cleanly; set Mode = brownfield. Greenfield (empty/new): scaffold a modular layout — a root (`providers.tf`, `main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars`) calling modules under `modules/` shaped by the session's `module_pattern`; set Mode = greenfield.
 
@@ -142,9 +142,7 @@ For Azure sessions: query `az account show` (if `azure_cli_mode: skill`) or ask 
 
 **Phase 2 — Generation (HCL-Architect).** Apply the module pattern from SESSION CONFIG (`composite`, `resource`, or `company-standard`). Apply the diagnosed controls. For any refactor, prefer declarative `moved`/`import`/`removed` blocks over destructive recreation. Enforce HashiCorp style (§1). Apply comment verbosity from SESSION CONFIG: `verbose` writes rationale on every block; `standard` writes only non-obvious WHY comments (lifecycle guards, `depends_on` overrides, non-evident expressions) and nothing on structural blocks; `none` writes no comments. Use British English in any prose comments (authorise, optimise, centre). Present code for review before writing `.tf` files.
 
-**Phase 3 — Security pass (Sentinel-Scanner).** Mimic `checkov`/`trivy`. Flag High/Critical: public endpoints enabled where they need not be, unencrypted storage, weakest-TLS settings, and any allow-rule with `*` / `0.0.0.0/0` / `::/0`. Source secrets from the cloud's secret manager — never from defaults, state or logs. The specific knobs differ per cloud — read `references/<cloud>.md`.
-
-**Phase 4 — Validation (State-Validator).** Run the plan-only chain directly — these are the exact commands scoped in `allowed-tools`, so they need no extra approval:
+**Phase 3 — Validation (State-Validator).** Run the plan-only chain directly — these are the exact commands scoped in `allowed-tools`, so they need no extra approval:
 ```bash
 terraform init -backend=false -input=false   # downloads providers; no backend init
 terraform validate
@@ -156,7 +154,7 @@ Report the Add/Change/Destroy summary. **Never** proceed to apply. Cross-check e
 
 `scripts/validate.sh` runs this same chain for humans and CI and writes `tfplan` and `plan_output.json`. Invoking it as `bash validate.sh` is a separate shell call that this skill does not pre-approve — run the commands above directly, or approve the script yourself.
 
-**Phase 5 — Handoff.** Deliver the final report (§10).
+**Phase 4 — Handoff.** Deliver the final report (§10).
 
 ---
 
@@ -200,7 +198,7 @@ Current provider majors (verify the exact latest stable at research time):
 - **One root per cloud.** Do not build a leaky abstraction module spanning clouds — the resource schemas diverge too far. Use provider aliasing for multi-region/multi-account *within* a cloud.
 - **Separate environments from reusable modules.** Use `examples/` as integration fixtures.
 - **Naming and tagging are NOT portable.** AWS uses `tags` + provider `default_tags`; Azure uses `tags`; GCP splits `labels` (billing/filtering) from network/resource-manager `tags`; OCI splits `freeform_tags` from namespaced `defined_tags`. Never assume one cloud's tag semantics on another — read the tagging section of `references/<cloud>.md`.
-- **Secure defaults.** Private endpoints, encryption, least-privilege identity. Prefer the cloud's verified/official module ecosystem (namespaces in `references/<cloud>.md`).
+- **Secure defaults.** Private endpoints, encryption, least-privilege identity. Source secrets from the cloud's secret manager — never from defaults, state or logs. Prefer the cloud's verified/official module ecosystem (namespaces in `references/<cloud>.md`).
 
 ---
 
@@ -221,10 +219,9 @@ Restrict provider-schema lookups to:
 Use `assets/final-report-template.md` as the output template.
 
 1. **Modular map** — tree of files created/updated.
-2. **Security verdict** — ID | Severity | Issue | Resolution.
-3. **Plan summary** — Add/Change/Destroy, with any replacement flagged and the stop-and-confirm outcome.
-4. **Output contract** — assumptions; failure modes addressed; tradeoffs; rollback/recovery.
-5. **Handoff** — "Code is staged and validated. Manual `terraform apply tfplan` is required."
+2. **Plan summary** — Add/Change/Destroy, with any replacement flagged and the stop-and-confirm outcome.
+3. **Output contract** — assumptions; failure modes addressed; tradeoffs; rollback/recovery.
+4. **Handoff** — "Code is staged and validated. Manual `terraform apply tfplan` is required."
 
 ---
 

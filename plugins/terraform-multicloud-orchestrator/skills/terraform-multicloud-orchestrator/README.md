@@ -31,7 +31,7 @@ references/
 
 ## Usage
 
-Install the parent plugin (Claude Code or Codex marketplace) per the repository README, then prompt with any Terraform task. The skill establishes the session config once, loads only the in-scope per-cloud reference, generates modular HCL, runs a security pass, and validates with the plan-only chain:
+Install the parent plugin (Claude Code or Codex marketplace) per the repository README, then prompt with any Terraform task. The skill establishes the session config once, loads only the in-scope per-cloud reference, generates modular HCL, and validates with the plan-only chain:
 
 ```bash
 terraform init -backend=false -input=false
