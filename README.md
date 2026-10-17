@@ -86,7 +86,7 @@ codex plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
 
 - **Cloud-agnostic spine, per-cloud leaves.** The workflow, safety policy, pinning logic and state mechanics are cloud-neutral. Cloud-specific facts (ForceNew traps, expensive-to-recreate resources, provider-upgrade notes, tagging semantics, policy tooling, module namespaces) live in `references/aws.md`, `azure.md`, `gcp.md`, `oci.md` and load on demand.
 - **Ask once, then persist.** On first use it asks for target cloud(s) and a pinning strategy (`exact` / `pessimistic-minor` / `pessimistic-patch` / `latest-stable-and-pin`), emits a `SESSION CONFIG` block, and treats it as authoritative for the rest of the session.
-- **Plan-only by policy.** `apply`, `destroy` and `-auto-approve` are forbidden. The agent runs only `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get`, `providers`. Any planned replacement of an expensive resource triggers a stop-and-confirm gate.
+- **Plan-only by policy.** `apply`, `destroy` and `-auto-approve` are forbidden. The agent runs only `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get`, `providers`, plus `jq` to read plan JSON. Any planned replacement of an expensive resource triggers a stop-and-confirm gate.
 - **Structured output.** Every response carries a response contract: assumptions and version floor, risk category addressed, remediation and tradeoffs, a validation plan, and rollback notes.
 
 ## Authoring with provider MCP servers (fix-forward)

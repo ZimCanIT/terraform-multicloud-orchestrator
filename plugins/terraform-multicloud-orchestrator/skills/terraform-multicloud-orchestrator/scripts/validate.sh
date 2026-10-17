@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Usage: validate.sh [--static | --plan] [PLAN_OUT] [JSON_OUT]
-#   --static  init -backend=false, validate, fmt -check. Needs no state or credentials.
+#   --static  init -backend=false, validate, fmt -check -recursive. Needs no state or credentials.
 #   --plan    init, plan, show -json, then list the resources the plan deletes or replaces.
 #   (none)    both, in that order.
 MODE="all"
@@ -36,7 +36,7 @@ echo "Using ${TF_BIN}"
 if [[ "${MODE}" != "plan" ]]; then
   "${TF_BIN}" init -backend=false -input=false
   "${TF_BIN}" validate
-  "${TF_BIN}" fmt -check
+  "${TF_BIN}" fmt -check -recursive
 fi
 
 if [[ "${MODE}" != "static" ]]; then

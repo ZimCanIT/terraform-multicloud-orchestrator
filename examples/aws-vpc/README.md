@@ -77,11 +77,11 @@ lists anything the plan deletes or replaces:
 ```bash
 terraform init -backend=false -input=false
 terraform validate
-terraform fmt -check
+terraform fmt -check -recursive
 
 terraform init -input=false
 terraform plan -input=false -out=tfplan
-terraform show -json tfplan | jq -r '.resource_changes[] | select(.change.actions | index("delete")) | "\(.address)\t\(.change.actions | join("+"))"'
+terraform show -json tfplan | jq -r '.resource_changes[]? | select(.change.actions | index("delete")) | "\(.address)\t\(.change.actions | join("+"))"'
 ```
 
 Every line of the plan is `+ create` and the `jq` filter prints nothing, so the
@@ -123,5 +123,5 @@ aws-vpc/
 Code is staged and validated. Manual `terraform apply tfplan` is required.
 ```
 
-The user reviews `tfplan` / `plan_output.json` and runs the apply themselves —
+The user reviews `tfplan` and runs the apply themselves —
 the skill never does.
