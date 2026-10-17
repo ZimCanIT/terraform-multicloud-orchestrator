@@ -52,11 +52,12 @@ A modular layout is scaffolded — a root calling a composite `network` module:
 
 ```
 aws-vpc/
+├── versions.tf
 ├── providers.tf
 ├── main.tf            # calls module "network"
 ├── variables.tf
 ├── outputs.tf
-├── terraform.tfvars
+├── terraform.tfvars.example
 └── modules/
     └── network/
         ├── main.tf    # aws_vpc + private subnets + route table
@@ -97,11 +98,12 @@ greenfield: with no existing state there is nothing to replace.
 
 ## Modular Map
 aws-vpc/
+├── versions.tf
 ├── providers.tf
 ├── main.tf
 ├── variables.tf
 ├── outputs.tf
-├── terraform.tfvars
+├── terraform.tfvars.example
 └── modules/network/{main,variables,outputs}.tf
 
 ## Plan Summary
