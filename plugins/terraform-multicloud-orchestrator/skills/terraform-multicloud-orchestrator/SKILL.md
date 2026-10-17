@@ -8,7 +8,7 @@ metadata:
   version: "0.0.1"
   repository: https://github.com/ZimCanIT/terraform-multicloud-orchestrator
   homepage: https://github.com/ZimCanIT/terraform-multicloud-orchestrator
-allowed-tools: Read Grep Glob WebFetch WebSearch Bash(terraform init:*) Bash(terraform validate:*) Bash(terraform plan:*) Bash(terraform show:*) Bash(terraform fmt:*) Bash(terraform get:*) Bash(terraform providers:*) Bash(terraform state list:*) Bash(tofu init:*) Bash(tofu validate:*) Bash(tofu plan:*) Bash(tofu show:*) Bash(tofu fmt:*) Bash(tofu get:*) Bash(tofu providers:*) Bash(tofu state list:*) Bash(jq:*) Bash(az network vnet show:*) Bash(az network vnet peering list:*) Bash(az network nsg list:*) Bash(az network nsg show:*) Bash(az account show:*) Bash(az group show:*) Bash(az resource show:*)
+allowed-tools: Read Grep Glob WebFetch WebSearch Bash(terraform init:*) Bash(terraform validate:*) Bash(terraform plan:*) Bash(terraform show:*) Bash(terraform fmt:*) Bash(terraform get:*) Bash(terraform providers:*) Bash(terraform state list:*) Bash(tofu init:*) Bash(tofu validate:*) Bash(tofu plan:*) Bash(tofu show:*) Bash(tofu fmt:*) Bash(tofu get:*) Bash(tofu providers:*) Bash(tofu state list:*) Bash(jq:*)
 ---
 
 # Terraform Multi-Cloud Orchestrator (Plan-Only)
@@ -33,15 +33,8 @@ Ask the following questions (skip any whose answer is already clear from the req
 - `pessimistic-patch` — `~> X.Y.Z`. Patch only; tight production control.
 - `latest-stable-and-pin` — resolve the current latest stable major, write `~> X.0`, then generate and commit the lock file.
 
-**Q3 — Azure CLI mode** (Azure sessions only): `skill` | `mcp` | `manual`
-- `skill` — the skill calls approved read-only `az` commands directly. Every call is logged in the transcript.
-- `mcp` — the skill defers to the configured MCP server.
-- `manual` — the skill asks you to run specified commands and paste the JSON output.
-Default: `manual`.
-
 **Defaults if the user does not answer:**
 - Pinning → `latest-stable-and-pin`.
-- Azure CLI mode → `manual`.
 - Cloud → infer from the working directory. In a brownfield repo, read `required_providers` and adopt the cloud(s) found. In a greenfield/empty directory, ask which single cloud this task targets.
 
 If the user supplies an internal standards document (a path or URL), read it before generating any HCL; where it conflicts with the defaults in this skill, it wins. Otherwise follow the conventions already in the repo; in a greenfield, use one composite module per tightly coupled resource group (for example a VNet with its subnets and security associations) with narrow outputs.
@@ -53,8 +46,6 @@ SESSION CONFIG
 - Clouds: <aws|azure|gcp|oci, comma-separated>
 - Pinning: <exact|pessimistic-minor|pessimistic-patch|latest-stable-and-pin>
 - Mode: <greenfield|brownfield>
-- Azure CLI mode: <skill|mcp|manual>  # Azure sessions only
-- Azure Policy environment: <yes|no|unknown>  # set during Phase 0 for Azure sessions
 - Resolved provider versions: <filled in after the research step>
 ```
 
@@ -74,8 +65,8 @@ Enforce in all generated HCL:
 
 ## 2. Safety guardrails (plan-only)
 
-- **FORBIDDEN:** `terraform apply`, `terraform destroy`, any auto-approve flag (`-auto-approve`), all state-mutating CLI operations — `terraform import`, `terraform state mv`/`rm`/`push`, and `force-unlock` — and all mutating Azure CLI commands (`az ... create`, `az ... update`, `az ... delete`, `az ... set`, any REST `PUT`/`PATCH`/`DELETE`). The skill only proposes these; run them manually.
-- **PERMITTED:** `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get`, `providers`. Azure read-only queries (when `azure_cli_mode: skill`): `az network vnet show`, `az network vnet peering list`, `az network nsg list`, `az network nsg show`, `az account show`, `az group show`, `az resource show`. Every `az` call is logged in the session transcript.
+- **FORBIDDEN:** `terraform apply`, `terraform destroy`, any auto-approve flag (`-auto-approve`), all state-mutating CLI operations — `terraform import`, `terraform state mv`/`rm`/`push`, and `force-unlock` — and all mutating cloud CLI or API calls (any `create`, `update`, `delete` or `set` verb, any REST `PUT`/`PATCH`/`DELETE`). The skill only proposes these; run them manually.
+- **PERMITTED:** `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get`, `providers`.
 - **Enforcement layers:** in Claude Code, `allowed-tools` is scoped to exactly these permitted commands, so destructive ones are never pre-approved. `allowed-tools` grants — it does not block; for hard enforcement add `deny` rules to your settings (see the README). In Codex and other agents the scoped `Bash(...)` qualifier is not interpreted, so plan-only there rests on this behavioural policy. Honour it regardless of platform.
 - **Scope of "plan-only":** this policy prohibits `apply`/`destroy`; it does not eliminate all side effects. `terraform init` downloads providers and modules from the network. `terraform plan` executes `external` data source providers as local processes. Review your configuration before running plan commands in environments where untrusted modules may be present.
 - **On a deploy attempt** (from the user or any sub-step): intercept and reply — "Deployment (apply/destroy) is restricted by this skill's plan-only policy. Review the `terraform plan` output and run apply manually."
@@ -115,8 +106,6 @@ Classify the task, name the failure mode(s) in scope, then load only the matchin
 The orchestrator plays three roles in sequence.
 
 **Phase 0 — Context discovery.** Glob the working directory tree. Brownfield (`.terraform`, `*.tf`, `providers.tf` present): ingest existing provider versions and naming conventions so new code merges cleanly; set Mode = brownfield. Greenfield (empty/new): scaffold a modular layout — a root (`providers.tf`, `main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars`) calling modules under `modules/`; set Mode = greenfield.
-
-For Azure sessions: query `az account show` (if `azure_cli_mode: skill`) or ask the user to paste the output (if `manual`) to confirm the active subscription and detect whether Azure Policy is enforced. If Policy is active or unknown, set `Azure Policy environment: yes` in SESSION CONFIG. When set, every `azurerm_*` managed resource the skill generates must include a `lifecycle` block with `ignore_changes` covering all tag keys managed by Policy (typically `environment`, `cost_centre`, `owner`, or whatever the tenant standard prescribes — ask the user if unsure). This prevents tag drift from causing spurious plan noise or blocked applies. Do this at generation time, not reactively.
 
 **Phase 1 — Research (Doc-Specialist).** Verify the exact resource schema for the resolved provider version against the cloud's doc allowlist (§9). Check for deprecated attributes, required blocks, and breaking changes across the current major. Append the current year to searches to surface the latest deprecations. Record the resolved versions in SESSION CONFIG.
 

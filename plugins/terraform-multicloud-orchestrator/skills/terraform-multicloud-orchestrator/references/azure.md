@@ -31,6 +31,10 @@ API Management (APIM — 30–45 min recreate), VPN Gateway, ExpressRoute Gatewa
 - Tag names are case-insensitive for Azure operations; tag values are case-sensitive.
 - There is no provider-level default-tags equivalent — apply tags via a shared `locals` map, a tagging module (e.g. Claranet's `tagging/azurerm` v2.0.0+), or a wrapper module. Perpetual diff issues can occur on tag-related properties; upgrade to v4.35.0+ to access fixes for specific resources.
 
+## Policy-managed tags (Phase 0 discovery)
+- Ask the user to paste `az account show` to confirm the active subscription and whether Azure Policy modifies or enforces tags. Run `az` yourself only if the user has allowed those read-only commands.
+- If Policy is active or unknown, every `azurerm_*` managed resource you generate must include a `lifecycle` block with `ignore_changes` covering all tag keys managed by Policy (typically `environment`, `cost_centre`, `owner`, or whatever the tenant standard prescribes — ask the user if unsure). This prevents tag drift from causing spurious plan noise or blocked applies. Do this at generation time, not reactively.
+
 ## Policy-as-code & sovereignty (compliance gates)
 - Sentinel is HashiCorp's Policy as Code framework (HCP Terraform / Terraform Enterprise) that evaluates the plan in a policy-check gate between plan and apply.
 - Azure Policy (audit / deny / deployIfNotExists), Management Groups (hierarchical cascade), Microsoft Defender for Cloud / Compliance Manager.
