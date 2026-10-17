@@ -3,11 +3,11 @@
 Providers: `hashicorp/azurerm` (primary) and `azapi` (preview/uncovered resources). Read alongside the cloud-agnostic mechanism files.
 
 ## Provider & pinning
-- Current major: **v4.x**. Latest stable = v4.x; resolve the exact latest patch at research time. Use `version = "~> 4.0"`.
+- Resolve the current major at research time and pin `~> <major>.0`. A v5 major has shipped; the v4 notes below still apply to v4 estates.
 - v4 made `subscription_id` **required** (via the `subscription_id` argument or `ARM_SUBSCRIPTION_ID`), removed long-deprecated resources, and added provider-defined functions.
 - The provider block requires a `features {}` block (even if empty); omitting it fails `terraform validate`.
 - Handle `resource_provider_registrations = "none"` where the subscription pre-registers resource providers out of band.
-- v5.0 is in development with breaking changes planned; monitor CHANGELOG and HashiCorp's upgrade guide before major-version transitions.
+- Before any major-version transition, read the release notes and upgrade guide for the target major (`github.com/hashicorp/terraform-provider-azurerm/releases`).
 
 ## ForceNew traps (identity churn)
 - `azurerm_subnet` — `resource_group_name`, `virtual_network_name` are ForceNew.
@@ -23,13 +23,13 @@ API Management (APIM — 30–45 min recreate), VPN Gateway, ExpressRoute Gatewa
 
 ## Provider major-upgrade notes (state migration)
 - v3→v4: set `subscription_id`; remove the resources dropped in v4. Some resources (e.g. `azurerm_kusto_cluster`) have specific state-migration fixes — upgrade directly to the current version rather than stepping through.
-- v4→v5: Breaking changes pending include removal of deprecated `virtual_machines.graceful_shutdown` feature flag (deprecated v4.26.0), renaming of `enable_rbac_authorization` to `rbac_authorization_enabled` on Key Vault, and archival of legacy CAF Enterprise Scale resources. CDN Classic and Front Door Classic resources block new creations as of v4.35.0; migrate to newer services. Review HashiCorp's v5.0 upgrade guide and resource-specific release notes.
+- v4→v5: v5.0.0 has shipped. Read its upgrade guide, linked from the release notes (`github.com/hashicorp/terraform-provider-azurerm/releases/tag/v5.0.0`), before upgrading. CDN Classic and Front Door Classic resources block new creations as of v4.35.0; migrate to newer services.
 - Private Link DNS zone names follow `privatelink.<service-suffix>` conventions (e.g. `privatelink.blob.core.windows.net`).
 
 ## Tagging
 - `tags` map on most resources, generally updatable in place (rarely ForceNew).
 - Tag names are case-insensitive for Azure operations; tag values are case-sensitive.
-- There is no provider-level default-tags equivalent — apply tags via a shared `locals` map, a tagging module (e.g. Claranet's `tagging/azurerm` v2.0.0+), or a wrapper module. Perpetual diff issues can occur on tag-related properties; upgrade to v4.35.0+ to access fixes for specific resources.
+- There is no provider-level default-tags equivalent — apply tags via a shared `locals` map, a tagging module, or a wrapper module. Perpetual diff issues can occur on tag-related properties; upgrade to a current provider release for fixes to specific resources.
 
 ## Policy-managed tags (Phase 0 discovery)
 - Ask the user to paste `az account show` to confirm the active subscription and whether Azure Policy modifies or enforces tags. Run `az` yourself only if the user has allowed those read-only commands.
@@ -38,14 +38,14 @@ API Management (APIM — 30–45 min recreate), VPN Gateway, ExpressRoute Gatewa
 ## Policy-as-code & sovereignty (compliance gates)
 - Sentinel is HashiCorp's Policy as Code framework (HCP Terraform / Terraform Enterprise) that evaluates the plan in a policy-check gate between plan and apply.
 - Azure Policy (audit / deny / deployIfNotExists), Management Groups (hierarchical cascade), Microsoft Defender for Cloud / Compliance Manager.
-- Azure Blueprints deprecated July 11, 2026. Migrate new implementations to Template Specs and Deployment Stacks per Microsoft Learn.
+- Azure Blueprints has passed its deprecation date (11 July 2026). Use Template Specs and Deployment Stacks instead; check Microsoft Learn for current status.
 - EU Data Boundary is the residency construct. Management-group policy **cascades** down the hierarchy — model inheritance deliberately.
 - For data sovereignty: implement Sentinel policies; use Azure Policy assignments; encrypt sensitive data with customer-managed keys (CMK) in Key Vault or HSM; apply data classification and tagging per region. Azure Sovereign Landing Zone provides Bicep and Terraform reference implementations.
 - Enterprise Policy As Code (EPAC) framework integrates with Azure Landing Zones for large-scale governance.
 
 ## Module ecosystem
 - **Azure Verified Modules (AVM)** is the primary recommendation: resource modules `Azure/avm-res-<provider>-<resource>/azurerm`, pattern modules `Azure/avm-ptn-*/azurerm`. WAF-aligned secure defaults and a consistent interface (`name`, `location`, `tags`, `managed_identities`, `diagnostic_settings`, `role_assignments`, `private_endpoints`, `lock`). Available via `registry.terraform.io/namespaces/Azure` and `azure.github.io/Azure-Verified-Modules`. Many modules are still pre-1.0 (`0.y.z` — anything may change), so pin exact versions.
-- Legacy CAF Enterprise Scale module transitioned to extended support and archives 1 August 2026; new deployments should use AVM.
+- The legacy CAF Enterprise Scale module (`Azure/caf-enterprise-scale/azurerm`) is deprecated and its repository was archived on 15 September 2026, so it receives no further updates; new deployments should use Azure Verified Modules for Platform Landing Zones (`aka.ms/alz/tf`).
 - `aztfmod/caf/azurerm` for Cloud Adoption Framework patterns.
 
 ## Doc sources

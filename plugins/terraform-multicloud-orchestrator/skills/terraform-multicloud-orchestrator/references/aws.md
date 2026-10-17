@@ -3,9 +3,9 @@
 Provider: `hashicorp/aws`. Read alongside the cloud-agnostic mechanism files.
 
 ## Provider & pinning
-- Current major: **v6.x**. Verify the exact latest patch at research time.
-- Pin versions using `required_providers` block and `.terraform.lock.hcl` dependency lock file. Use `~> 6.51.0` (pessimistic-patch) to fix major and minor; use `~> 6.51` (pessimistic-minor) to allow minor and patch to change; avoid deprecated `version` argument in provider blocks.
-- Example: `required_providers { aws = { source = "hashicorp/aws", version = "~> 6.51.0" } }`.
+- Resolve the current major at research time; the upgrade notes below cover v5 to v6.
+- Pin versions using `required_providers` block and `.terraform.lock.hcl` dependency lock file. Use `~> 6.N.0` (pessimistic-patch, N = the resolved minor) to fix major and minor; use `~> 6.N` (pessimistic-minor) to allow minor and patch to change; avoid deprecated `version` argument in provider blocks.
+- Example: `required_providers { aws = { source = "hashicorp/aws", version = "~> 6.N.0" } }`.
 - v6 introduced per-resource `region` argument (most resources accept a top-level `region`; global services — IAM, CloudFront, Route 53 — do not), removed OpsWorks / SimpleDB / Worklink, retyped launch-template booleans, and removed the `aws_eip` `vpc` argument (use `domain`).
 
 ## ForceNew traps (identity churn)
@@ -24,7 +24,7 @@ RDS instances / clusters, NAT Gateway, CloudFront distributions, Transit Gateway
 ## Provider major-upgrade notes (v5 to v6)
 Upgrade one major at a time; read the provider upgrade guide on the registry first.
 - **Breaking changes**:
-  - `aws_kinesis_analytics_application` (SQL) is deprecated in v6 (removal planned) — AWS service EOL 27 January 2026. Migrate to `aws_kinesisanalyticsv2_application`.
+  - `aws_kinesis_analytics_application` (SQL) is deprecated in v6 (removal planned). Migrate to `aws_kinesisanalyticsv2_application`.
   - `aws_simpledb_domain` removed entirely (AWS SDK v2 dropped support).
   - EC2 `user_data` now stored clear-text (no longer hashed). Remove embedded secrets before upgrading.
   - `cpu_core_count` / `cpu_threads_per_core` removed from `aws_instance` — use `cpu_options` block instead.
@@ -47,14 +47,13 @@ Upgrade one major at a time; read the provider upgrade guide on the registry fir
   - **Proactive controls** via CloudFormation hooks: scan resources before provisioning, fail non-compliant templates.
 - **HashiCorp Sentinel**: Policy-as-code enforcement in HCP Terraform for additional governance layers.
 - **Data residency / sovereignty**:
-  - AWS European Sovereign Cloud (2026): Independent EU cloud infrastructure, stringent data-residency requirements, EU-only operations. Recommended for organisations subject to EU regulations.
+  - AWS European Sovereign Cloud: Independent EU cloud infrastructure, stringent data-residency requirements, EU-only operations. Recommended for organisations subject to EU regulations.
   - Deploy with Terraform + Control Tower + CloudTrail for centralised governance and audit logs.
 
 ## Module ecosystem
 - `terraform-aws-modules/<name>/aws` (e.g. `terraform-aws-modules/vpc/aws`, `.../eks/aws`, `.../rds/aws`): Community-maintained, de-facto standard. NOT official HashiCorp modules.
-  - **VPC module** v6.x, **EKS module** v21.x, **EC2-Instance module** v6.x, **RDS submodules** available; verify latest patches at research time.
+  - Modules exist for VPC, EKS, EC2 instances and RDS; resolve current module majors at research time.
   - Maintained by community (lead: Anton Babenko).
-- **Official**: HashiCorp publishes Terraform Enterprise HVD module on AWS (April 17, 2026).
 - No official provider-maintained modules in v6; rely on community or validated-design modules.
 
 ## Doc sources

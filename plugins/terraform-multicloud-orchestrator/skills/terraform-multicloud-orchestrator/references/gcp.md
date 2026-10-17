@@ -3,9 +3,9 @@
 Providers: `hashicorp/google` and `hashicorp/google-beta` (use beta for preview fields; keep them in lockstep). Read alongside the cloud-agnostic mechanism files.
 
 ## Provider & pinning
-- Current major: **v7.x**. Resolve the exact latest patch at research time.
+- Resolve the current major at research time; a v8 major has shipped after the v7 notes below.
 - v7 tightened validation and continues HTTP migration of compute resources in v7.32.0+; ephemeral resources and write-only attributes arrived earlier (v6.13.0 and v6.23.0 respectively).
-- Pinning strategy: `version = "~> 7.0"` for both `google` and `google-beta`. Lock files (`.terraform.lock.hcl`) must be committed to version control for team consistency.
+- Pinning strategy: the same `~> <major>.0` constraint for both `google` and `google-beta`. Lock files (`.terraform.lock.hcl`) must be committed to version control for team consistency.
 - Each provider dependency must have an explicit version constraint.
 
 ## ForceNew traps (identity churn)
@@ -21,6 +21,7 @@ Providers: `hashicorp/google` and `hashicorp/google-beta` (use beta for preview 
 - GKE clusters and node pools, Cloud Composer environments, Bigtable instances, Filestore: all slow and disruptive to recreate. Plan for maintenance windows.
 
 ## Provider major-upgrade notes (state migration)
+- v7→v8: v8.0.0 has shipped. Read its upgrade guide, linked from the release notes (`github.com/hashicorp/terraform-provider-google/releases/tag/v8.0.0`), before upgrading; upgrade `google` and `google-beta` together.
 - v6→v7: validation tightening, HTTP compute migration (v7.32.0+). Upgrade `google` and `google-beta` together.
 - v5→v6 (2024): (1) `goog-terraform-provisioned` attribution label added by default (introduced 5.16.0, default in 6.0.0; opt-out via `add_terraform_attribution_label=false`); (2) deletion_protection defaults to true on Cloud Run, Cloud Domains, Redis, Folders, Projects; (3) removal of `require_ssl` from Cloud SQL (use `ssl_mode`); (4) removal of guest_accelerator and secondary_ip_range empty-block syntax. (The three-field label model is v5.0.0 — see Tagging.)
 
@@ -32,17 +33,16 @@ Providers: `hashicorp/google` and `hashicorp/google-beta` (use beta for preview 
 - Provider-level `default_labels` apply globally.
 
 ## Policy-as-code & sovereignty (compliance gates)
-- Terraform policy validation: `gcloud beta terraform vet` with Rego-based constraints (Terraform-based and CAI Cloud Asset Inventory models); status as of June 2026: preview/Pre-GA.
+- Terraform policy validation: `gcloud beta terraform vet` with Rego-based constraints (Terraform-based and CAI Cloud Asset Inventory models); it was preview/Pre-GA when last checked, so confirm its status first.
 - Organization Policy constraints: hierarchical restrictions on service configurations (not IAM — IAM is who, Org Policy is what; inherited by descendants, can be merged or overridden per constraint). Use official `terraform-google-modules/org-policy`.
-- VPC Service Controls: managed via official `terraform-google-modules/vpc-service-controls` (updated April 2026) for data exfiltration control and service perimeters.
+- VPC Service Controls: managed via official `terraform-google-modules/vpc-service-controls` for data exfiltration control and service perimeters.
 - EU data residency: set the `gcp.resourceLocations` org-policy constraint to `in:eu-locations` (Assured Workloads packages this as EU Data Boundary).
 - Assured Workloads and Sovereign Controls by Partners provide data residency + encryption/key-management guardrails (subject to Pre-GA terms).
 - Security Command Center for threat and vulnerability detection.
 
 ## Module ecosystem
-- Official verified modules: `terraform-google-modules/` namespace (part of Cloud Foundation Toolkit, actively maintained). Key modules: `kubernetes-engine` (GKE; updated Jan 2026), `vpc-service-controls` (service perimeters; updated April 2026), `org-policy` (organization constraints), `gcloud` (CLI wrapper).
-- GoogleCloudPlatform namespace: `cloud-functions` (v0.9.0, April 2026), `cloud-armor` (v8.1.0, March 2026).
-- 1383+ verified modules available in registry.
+- Official verified modules: `terraform-google-modules/` namespace (part of Cloud Foundation Toolkit, actively maintained). Key modules: `kubernetes-engine` (GKE), `vpc-service-controls` (service perimeters), `org-policy` (organization constraints), `gcloud` (CLI wrapper).
+- GoogleCloudPlatform namespace: `cloud-functions`, `cloud-armor`.
 
 ## Doc sources
 - Provider docs & resources: `registry.terraform.io/providers/hashicorp/google/latest/docs`

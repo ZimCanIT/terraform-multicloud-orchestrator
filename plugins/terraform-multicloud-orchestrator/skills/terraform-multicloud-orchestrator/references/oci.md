@@ -3,10 +3,10 @@
 Provider: `oracle/oci`. No upstream multi-cloud skill covers OCI — rely on Oracle docs and the OCI Landing Zones org. Read alongside the cloud-agnostic mechanism files.
 
 ## Provider & pinning
-- Current major: **v8.x** (`oracle/oci`, published by `tf-oci-pub`). Verify the exact latest patch at research time.
-- Use `required_providers` block with `source = "oracle/oci"` and `version = "~> 8.0"` to allow minor and patch updates while locking the major version.
+- Resolve the current major at research time (`oracle/oci`, published by `tf-oci-pub`); a v9 major has shipped after the v8 notes below.
+- Use `required_providers` block with `source = "oracle/oci"` and `version = "~> <major>.0"` to allow minor and patch updates while locking the major version.
 - Commit `.terraform.lock.hcl` (dependency lock file) to version control for consistency across all runs.
-- For root modules, specify a maximum version constraint (e.g. `>= 8.0, < 9.0`) to prevent accidental upgrades to incompatible major versions.
+- For root modules, specify a maximum version constraint (e.g. `>= <major>.0, < <next-major>.0`) to prevent accidental upgrades to incompatible major versions.
 
 ## ForceNew traps (identity churn)
 - `oci_core_instance` (compute) — forces replacement when changed: `availability_domain`, `cluster_placement_group_id`, `compute_cluster_id`, `compute_host_group_id`, `hostname_label`, `image` (deprecated), `ipxe_script`, `subnet_id` (deprecated).
@@ -20,7 +20,8 @@ Autonomous Database, Exadata / ExaCS, DRG (Dynamic Routing Gateway), DB Systems,
 - Always review `terraform plan` output before apply to identify affected resources.
 
 ## Provider major-upgrade notes (state migration)
-- v8.0.0 released February 4, 2026. **Breaking change**: `oci_globally_distributed_database` resource removed — any configurations using this resource must be migrated or removed before upgrading from v7.x.
+- v9: v9.0.0 has shipped; read its release notes (`github.com/oracle/terraform-provider-oci/releases`) before upgrading.
+- v8.0.0 **Breaking change**: `oci_globally_distributed_database` resource removed — any configurations using this resource must be migrated or removed before upgrading from v7.x.
 - Migration path: remove GDD resource references from state/configuration and validate all non-updatable resource properties post-upgrade.
 
 ## Tagging
@@ -40,10 +41,9 @@ Autonomous Database, Exadata / ExaCS, DRG (Dynamic Routing Gateway), DB Systems,
 
 ## Module ecosystem
 - **Official modules**: `oracle-terraform-modules/<name>/oci` namespace (e.g. `oracle-terraform-modules/oke/oci`, `oracle-terraform-modules/base/oci`, `oracle-terraform-modules/compute-instance/oci`).
-  - OKE module v5.4.3+ (April 2026) actively maintained with 130+ versions.
   - IAM, base VCN, and compute modules recommended for production use.
 - **Landing Zones**: `oci-landing-zones` GitHub org provides governance modules (Tags, Budgets, CIS benchmark alignment).
-  - Main: `terraform-oci-core-landingzone` (successor to retired `oci-cis-landingzone-quickstart` as of May 2025).
+  - Main: `terraform-oci-core-landingzone` (successor to the retired `oci-cis-landingzone-quickstart`).
 
 ## Doc sources
 - Main OCI Terraform landing page: `https://docs.oracle.com/en-us/iaas/Content/dev/terraform/`
