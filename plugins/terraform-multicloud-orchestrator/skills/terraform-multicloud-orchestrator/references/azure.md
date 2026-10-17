@@ -32,8 +32,8 @@ API Management (APIM — 30–45 min recreate), VPN Gateway, ExpressRoute Gatewa
 - There is no provider-level default-tags equivalent — apply tags via a shared `locals` map, a tagging module, or a wrapper module. Perpetual diff issues can occur on tag-related properties; upgrade to a current provider release for fixes to specific resources.
 
 ## Policy-managed tags (Phase 0 discovery)
-- Ask the user to paste `az account show` to confirm the active subscription and whether Azure Policy modifies or enforces tags. Run `az` yourself only if the user has allowed those read-only commands.
-- If Policy is active or unknown, every `azurerm_*` managed resource you generate must include a `lifecycle` block with `ignore_changes` covering all tag keys managed by Policy (typically `environment`, `cost_centre`, `owner`, or whatever the tenant standard prescribes — ask the user if unsure). This prevents tag drift from causing spurious plan noise or blocked applies. Do this at generation time, not reactively.
+- Ask the user to paste `az account show` to confirm the active subscription; this skill does not pre-approve `az`, so run it yourself only if the user's settings allow it. That output cannot show whether Azure Policy modifies tags, so also ask whether it does and which tag keys it manages.
+- If Policy is active or unknown, wherever you set `tags` on an `azurerm_*` resource, also add a `lifecycle` block with `ignore_changes` covering all tag keys managed by Policy (typically `environment`, `cost_centre`, `owner`, or whatever the tenant standard prescribes — ask the user if unsure). This prevents tag drift from causing spurious plan noise or blocked applies. Do this at generation time, not reactively.
 
 ## Policy-as-code & sovereignty (compliance gates)
 - Sentinel is HashiCorp's Policy as Code framework (HCP Terraform / Terraform Enterprise) that evaluates the plan in a policy-check gate between plan and apply.
