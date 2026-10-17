@@ -3,11 +3,6 @@
 ## Modular Map
 <Tree of files created or updated.>
 
-## Security Verdict
-| ID | Severity | Issue | Resolution |
-|---|---|---|---|
-| <id> | <severity> | <issue> | <resolution> |
-
 ## Plan Summary
 - Add: <count>
 - Change: <count>

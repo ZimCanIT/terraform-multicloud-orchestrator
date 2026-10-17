@@ -68,14 +68,7 @@ Subnets use `for_each` over an AZ→CIDR map (not `count`) so an AZ change never
 churns the index of unrelated subnets. Prose comments use British English
 (authorise, optimise). Code is presented for review before any `.tf` file is written.
 
-## Phase 3 — Security pass (Sentinel-Scanner)
-
-The generated HCL is scanned the way `checkov`/`trivy` would. For private subnets
-with no internet gateway the surface is small; the scanner confirms there are no
-`0.0.0.0/0` ingress rules, no public IP auto-assignment, and that no secrets are
-sourced from defaults or state.
-
-## Phase 4 — Validation (State-Validator)
+## Phase 3 — Validation (State-Validator)
 
 The plan-only chain runs directly (these are the exact commands scoped in
 `allowed-tools`):
@@ -93,7 +86,7 @@ stop-and-confirm gate (§2 of `SKILL.md`) does not trigger.
 
 ---
 
-## Phase 5 — Handoff (final report)
+## Phase 4 — Handoff (final report)
 
 ```
 # Final Report
@@ -106,11 +99,6 @@ aws-vpc/
 ├── outputs.tf
 ├── terraform.tfvars
 └── modules/network/{main,variables,outputs}.tf
-
-## Security Verdict
-| ID | Severity | Issue | Resolution |
-|---|---|---|---|
-| — | — | No High/Critical findings | Private-only subnets; no wide-open rules |
 
 ## Plan Summary
 - Add: 5        # 1 VPC, 3 subnets, 1 route table
