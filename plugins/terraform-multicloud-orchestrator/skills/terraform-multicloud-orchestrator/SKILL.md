@@ -33,29 +33,18 @@ Ask the following questions (skip any whose answer is already clear from the req
 - `pessimistic-patch` — `~> X.Y.Z`. Patch only; tight production control.
 - `latest-stable-and-pin` — resolve the current latest stable major, write `~> X.0`, then generate and commit the lock file.
 
-**Q3 — Module pattern:** `composite` | `resource` | `company-standard`
-- `composite` — one module encapsulates tightly coupled resources (VNet + subnets + security associations). Default for teams that want a single root call-site.
-- `resource` — thin single-resource wrappers aligned with Azure Verified Modules or equivalent. Explicit, narrow outputs.
-- `company-standard` — supply a path or URL to an internal standards document; the skill reads it before generating any HCL.
-
-**Q4 — Azure CLI mode** (Azure sessions only): `skill` | `mcp` | `manual`
+**Q3 — Azure CLI mode** (Azure sessions only): `skill` | `mcp` | `manual`
 - `skill` — the skill calls approved read-only `az` commands directly. Every call is logged in the transcript.
 - `mcp` — the skill defers to the configured MCP server.
 - `manual` — the skill asks you to run specified commands and paste the JSON output.
 Default: `manual`.
 
-**Q5 — Comment verbosity:** `verbose` | `standard` | `none`
-- `verbose` — rationale comments on every block. Appropriate for demos and greenfield sessions.
-- `standard` — comments only where the WHY is non-obvious (lifecycle guards, `depends_on` overrides, non-evident expressions). No comments on structural blocks.
-- `none` — clean HCL only; no comments.
-Default: `verbose` for greenfield, `standard` for brownfield (auto-set from Mode).
-
 **Defaults if the user does not answer:**
 - Pinning → `latest-stable-and-pin`.
-- Module pattern → `composite`.
 - Azure CLI mode → `manual`.
-- Comment verbosity → derived from Mode (greenfield → `verbose`, brownfield → `standard`).
 - Cloud → infer from the working directory. In a brownfield repo, read `required_providers` and adopt the cloud(s) found. In a greenfield/empty directory, ask which single cloud this task targets.
+
+If the user supplies an internal standards document (a path or URL), read it before generating any HCL; where it conflicts with the defaults in this skill, it wins. Otherwise follow the conventions already in the repo; in a greenfield, use one composite module per tightly coupled resource group (for example a VNet with its subnets and security associations) with narrow outputs.
 
 Then emit the template from `assets/session-config-template.md`, restate it at the top of your first substantive reply, and treat it as authoritative for the rest of the session:
 
@@ -64,9 +53,7 @@ SESSION CONFIG
 - Clouds: <aws|azure|gcp|oci, comma-separated>
 - Pinning: <exact|pessimistic-minor|pessimistic-patch|latest-stable-and-pin>
 - Mode: <greenfield|brownfield>
-- Module pattern: <composite|resource|company-standard>
 - Azure CLI mode: <skill|mcp|manual>  # Azure sessions only
-- Comments: <verbose|standard|none>
 - Azure Policy environment: <yes|no|unknown>  # set during Phase 0 for Azure sessions
 - Resolved provider versions: <filled in after the research step>
 ```
@@ -75,7 +62,7 @@ Load `references/<cloud>.md` only for the cloud(s) in scope. Never load a cloud 
 
 ### HashiCorp style enforcement
 
-Enforce regardless of module pattern:
+Enforce in all generated HCL:
 - Resource and variable names: `snake_case` only — no hyphens.
 - No hardcoded environment-specific values; surface all as input `variable` blocks with `description` and `type`.
 - Meta-arguments inside resource blocks appear first, in order: `count`/`for_each`, `depends_on`, `provider`, `lifecycle`, then provisioner blocks.
@@ -127,13 +114,13 @@ Classify the task, name the failure mode(s) in scope, then load only the matchin
 
 The orchestrator plays three roles in sequence.
 
-**Phase 0 — Context discovery.** Glob the working directory tree. Brownfield (`.terraform`, `*.tf`, `providers.tf` present): ingest existing provider versions and naming conventions so new code merges cleanly; set Mode = brownfield. Greenfield (empty/new): scaffold a modular layout — a root (`providers.tf`, `main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars`) calling modules under `modules/` shaped by the session's `module_pattern`; set Mode = greenfield.
+**Phase 0 — Context discovery.** Glob the working directory tree. Brownfield (`.terraform`, `*.tf`, `providers.tf` present): ingest existing provider versions and naming conventions so new code merges cleanly; set Mode = brownfield. Greenfield (empty/new): scaffold a modular layout — a root (`providers.tf`, `main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars`) calling modules under `modules/`; set Mode = greenfield.
 
 For Azure sessions: query `az account show` (if `azure_cli_mode: skill`) or ask the user to paste the output (if `manual`) to confirm the active subscription and detect whether Azure Policy is enforced. If Policy is active or unknown, set `Azure Policy environment: yes` in SESSION CONFIG. When set, every `azurerm_*` managed resource the skill generates must include a `lifecycle` block with `ignore_changes` covering all tag keys managed by Policy (typically `environment`, `cost_centre`, `owner`, or whatever the tenant standard prescribes — ask the user if unsure). This prevents tag drift from causing spurious plan noise or blocked applies. Do this at generation time, not reactively.
 
 **Phase 1 — Research (Doc-Specialist).** Verify the exact resource schema for the resolved provider version against the cloud's doc allowlist (§9). Check for deprecated attributes, required blocks, and breaking changes across the current major. Append the current year to searches to surface the latest deprecations. Record the resolved versions in SESSION CONFIG.
 
-**Phase 2 — Generation (HCL-Architect).** Apply the module pattern from SESSION CONFIG (`composite`, `resource`, or `company-standard`). Apply the diagnosed controls. For any refactor, prefer declarative `moved`/`import`/`removed` blocks over destructive recreation. Enforce HashiCorp style (§1). Apply comment verbosity from SESSION CONFIG: `verbose` writes rationale on every block; `standard` writes only non-obvious WHY comments (lifecycle guards, `depends_on` overrides, non-evident expressions) and nothing on structural blocks; `none` writes no comments. Use British English in any prose comments (authorise, optimise, centre). Present code for review before writing `.tf` files.
+**Phase 2 — Generation (HCL-Architect).** Follow the module conventions from §1. Apply the diagnosed controls. For any refactor, prefer declarative `moved`/`import`/`removed` blocks over destructive recreation. Enforce HashiCorp style (§1). Comment only where the WHY is non-obvious (lifecycle guards, `depends_on` overrides, non-evident expressions) and leave structural blocks uncommented. Present code for review before writing `.tf` files.
 
 **Phase 3 — Validation (State-Validator).** Run the plan-only chain directly — these are the exact commands scoped in `allowed-tools`, so they need no extra approval:
 ```bash
