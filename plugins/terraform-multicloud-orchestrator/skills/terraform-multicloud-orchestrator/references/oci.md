@@ -14,7 +14,7 @@ Provider: `oracle/oci`. No upstream multi-cloud skill covers OCI — rely on Ora
 - General rule: any attribute not marked (Updatable) in the resource documentation forces replacement. Always run `terraform plan` before apply.
 
 ## Expensive / slow-to-recreate — STOP and confirm
-Autonomous Database, Exadata / ExaCS, DRG (Dynamic Routing Gateway), DB Systems, File Storage Service (FSS), and `oci_core_instance` with dependent workloads. Recreating any of these is slow and breaks attached workloads.
+Autonomous Database, Exadata / ExaCS, DRG (Dynamic Routing Gateway), DB Systems, OKE clusters, File Storage Service (FSS), and `oci_core_instance` with dependent workloads. Recreating any of these is slow and breaks attached workloads.
 
 - Mitigation: use `lifecycle.create_before_destroy` to spin up replacement before tearing down dependents, or `lifecycle.prevent_destroy` to block accidental deletion.
 - Always review `terraform plan` output before apply to identify affected resources.

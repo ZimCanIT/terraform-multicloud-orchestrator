@@ -17,7 +17,7 @@ Provider: `hashicorp/aws`. Read alongside the cloud-agnostic mechanism files.
 - Empty-string module defaults have historically forced replacement — pass `null`, not `""`.
 
 ## Expensive / slow-to-recreate — STOP and confirm
-RDS instances / clusters, NAT Gateway, CloudFront distributions, Transit Gateway, ElastiCache, Redshift, OpenSearch / Elasticsearch domains.
+RDS instances / clusters, EKS clusters, NAT Gateway, CloudFront distributions, Transit Gateway, ElastiCache, Redshift, OpenSearch / Elasticsearch domains.
 - **RDS downtime**: `apply_immediately` causes a brief downtime reboot during modifications. Engine / snapshot changes force recreation (not in-place update). Use `create_before_destroy` lifecycle rule to minimise downtime during upgrades.
 - S3 global endpoint support deprecated in v6 (removal planned for v7); `s3_us_east_1_regional_endpoint = "regional"` in us-east-1 requires migration.
 
