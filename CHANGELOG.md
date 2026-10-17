@@ -2,6 +2,31 @@
 
 All notable changes are documented here. Versions follow [Semantic Versioning](https://semver.org/); releases are generated automatically by [release-please](https://github.com/googleapis/release-please) from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.1.1](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/compare/terraform-multicloud-orchestrator-v0.1.0...terraform-multicloud-orchestrator-v0.1.1) (2026-10-17)
+
+
+### Features
+
+* add a GCP VPC example session ([14080bb](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/14080bbc2de15f47db3457cc30414b82494cd490))
+* add an Azure VNet example session ([8fcda0b](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/8fcda0b9334c9e27e98c1af18db58c0c9678a716))
+
+
+### Bug Fixes
+
+* handle plans with no resources and check module formatting ([adadaf0](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/adadaf0ffd063dcbbfd503bd5ee20721447f9244))
+* keep the plan-only guardrails above user standards documents ([0a4c18b](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/0a4c18b4495efefd4c3ee831a2a4c842cfc21910))
+* limit the Azure Policy tag rule to resources that set tags ([400e659](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/400e65938a41e3164fbe9ddb6eae052164d1b63a))
+* point the greenfield scaffold at the standard file layout ([c120af7](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/c120af747b7cabe6ba4f2bf6540c396e72232ab1))
+* put data-holding resources and azurerm types on the Azure stop list ([1d8c538](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/1d8c5385b8d9acd079f64e8da8febdca461cbb41))
+* replace AWS-specific majors and a dangling pointer in the spine ([efb7c21](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/efb7c218c56d78c7e93263824bcb49a936462eec))
+* scaffold versions.tf and terraform.tfvars.example in greenfield layouts ([77941ba](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/77941ba76626baa9c68c8728f3512ca02fefa833))
+
+
+### Documentation
+
+* define failure-mode first and clarify install and override rules ([0b2bb29](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/0b2bb29059cbfab35c1ce464867e5f2eade1d509))
+* trim README and state the apply/destroy restriction ([f8e83fc](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/f8e83fcab3bbf74f62ecc5fc3eb62d216ff970f2))
+
 ## [0.1.0](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/compare/terraform-multicloud-orchestrator-v0.0.2...terraform-multicloud-orchestrator-v0.1.0) (2026-10-17)
 
 
