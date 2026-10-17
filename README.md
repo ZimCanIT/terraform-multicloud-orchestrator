@@ -195,9 +195,9 @@ The first gate runs in CI on every push and pull request (`.github/workflows/ski
 
 Plan-only. The skill stages and validates Terraform but never deploys; the `apply` step is always manual and out of scope. Note that "plan-only" means no `apply`/`destroy` — `terraform init` still downloads providers from the network and `terraform plan` executes `external` data source providers as local processes. Review your configuration before running plan commands against untrusted modules.
 
-### Hard enforcement (optional)
+### Enforcing plan-only (optional)
 
-In Claude Code the skill's `allowed-tools` is scoped to the plan-only commands, so `apply`/`destroy` are never auto-approved. Because `allowed-tools` grants rather than blocks, add `deny` rules to your own `.claude/settings.json` for a hard stop that holds regardless of permission mode:
+In Claude Code the skill's `allowed-tools` is scoped to the plan-only commands, so `apply`/`destroy` are never auto-approved, and `init` is pre-approved only as `init -backend=false …` and plain `init -input=false`. Because `allowed-tools` grants rather than blocks, you can add `deny` rules to your own `.claude/settings.json` as a guard rail:
 
 ```json
 {
@@ -205,20 +205,35 @@ In Claude Code the skill's `allowed-tools` is scoped to the plan-only commands, 
     "deny": [
       "Bash(terraform apply:*)",
       "Bash(terraform destroy:*)",
+      "Bash(terraform import:*)",
       "Bash(terraform state rm:*)",
       "Bash(terraform state mv:*)",
       "Bash(terraform state push:*)",
-      "Bash(terraform import:*)",
+      "Bash(terraform force-unlock:*)",
       "Bash(terraform taint:*)",
       "Bash(terraform untaint:*)",
       "Bash(tofu apply:*)",
-      "Bash(tofu destroy:*)"
+      "Bash(tofu destroy:*)",
+      "Bash(tofu import:*)",
+      "Bash(tofu state rm:*)",
+      "Bash(tofu state mv:*)",
+      "Bash(tofu state push:*)",
+      "Bash(tofu force-unlock:*)",
+      "Bash(tofu taint:*)",
+      "Bash(tofu untaint:*)"
     ]
   }
 }
 ```
 
-Codex and other agents do not interpret these `Bash(...)` qualifiers; on those platforms plan-only rests on the skill's behavioural policy.
+Treat these rules as a guard rail, not a security boundary. A `deny` rule matches the command text Claude writes, so `Bash(terraform apply:*)` does not match `terraform -chdir=envs/prod apply`, `sh -c 'terraform apply'` or an absolute path to the binary. In a test with an equivalent rule on `terraform version`, the plain spelling was blocked while the `-chdir` and `sh -c` spellings ran. Claude Code's [permissions documentation](https://code.claude.com/docs/en/permissions#bash-rule-limits) lists the same limits.
+
+For a stop that holds whatever the spelling, use one of these instead of, or as well as, the rules:
+
+- Give the agent credentials that can read and plan but not write (a read-only or plan-only role), so an `apply` cannot succeed.
+- Add a [PreToolUse hook](https://code.claude.com/docs/en/hooks) that inspects the full command, or run Claude Code in a [sandbox](https://code.claude.com/docs/en/sandboxing).
+
+Codex and other agents do not interpret these `Bash(...)` qualifiers; on those platforms plan-only rests on the skill's behavioural policy and on the credentials you give the agent.
 
 ## Attribution and licence
 
