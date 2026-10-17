@@ -70,19 +70,23 @@ churns the index of unrelated subnets. Code is presented for review before any
 
 ## Phase 3 — Validation (State-Validator)
 
-The plan-only chain runs directly (these are the exact commands scoped in
-`allowed-tools`):
+The plan-only steps run directly (these are the exact commands scoped in
+`allowed-tools`). Static checks first, then the plan, then the `jq` filter that
+lists anything the plan deletes or replaces:
 
 ```bash
 terraform init -backend=false -input=false
 terraform validate
 terraform fmt -check
+
+terraform init -input=false
 terraform plan -input=false -out=tfplan
-terraform show -json tfplan > plan_output.json
+terraform show -json tfplan | jq -r '.resource_changes[] | select(.change.actions | index("delete")) | "\(.address)\t\(.change.actions | join("+"))"'
 ```
 
-Every line of the plan is `+ create`; nothing forces replacement, so the
-stop-and-confirm gate (§2 of `SKILL.md`) does not trigger.
+Every line of the plan is `+ create` and the `jq` filter prints nothing, so the
+stop-and-confirm gate (§2 of `SKILL.md`) does not trigger. That is expected in a
+greenfield: with no existing state there is nothing to replace.
 
 ---
 

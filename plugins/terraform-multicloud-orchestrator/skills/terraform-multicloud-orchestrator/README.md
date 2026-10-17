@@ -31,17 +31,23 @@ references/
 
 ## Usage
 
-Install the parent plugin (Claude Code or Codex marketplace) per the repository README, then prompt with any Terraform task. The skill establishes the session config once, loads only the in-scope per-cloud reference, generates modular HCL, and validates with the plan-only chain:
+Install the parent plugin (Claude Code or Codex marketplace) per the repository README, then prompt with any Terraform task. The skill establishes the session config once, loads only the in-scope per-cloud reference, generates modular HCL, and validates with two plan-only steps. The static checks need no state or credentials:
 
 ```bash
 terraform init -backend=false -input=false
 terraform validate
 terraform fmt -check
-terraform plan -input=false -out=tfplan
-terraform show -json tfplan > plan_output.json
 ```
 
-`scripts/validate.sh` runs the same chain for humans and CI.
+The state-backed plan reads real state, so it is the only step that can see a replacement. It lists every resource the plan deletes or replaces:
+
+```bash
+terraform init -input=false
+terraform plan -input=false -out=tfplan
+terraform show -json tfplan | jq -r '.resource_changes[] | select(.change.actions | index("delete")) | "\(.address)\t\(.change.actions | join("+"))"'
+```
+
+`scripts/validate.sh` runs the same two steps for humans and CI. Pass `--static` or `--plan` to run just one.
 
 ## Compatibility
 
