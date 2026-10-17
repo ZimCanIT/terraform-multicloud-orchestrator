@@ -4,8 +4,8 @@ Provider: `hashicorp/aws`. Read alongside the cloud-agnostic mechanism files.
 
 ## Provider & pinning
 - Resolve the current major at research time; the upgrade notes below cover v5 to v6.
-- Pin versions using `required_providers` block and `.terraform.lock.hcl` dependency lock file. Use `~> 6.N.0` (pessimistic-patch, N = the resolved minor) to fix major and minor; use `~> 6.N` (pessimistic-minor) to allow minor and patch to change; avoid deprecated `version` argument in provider blocks.
-- Example: `required_providers { aws = { source = "hashicorp/aws", version = "~> 6.N.0" } }`.
+- Pin versions using `required_providers` block and `.terraform.lock.hcl` dependency lock file. Use `~> <major>.N.0` (pessimistic-patch, N = the resolved minor) to fix major and minor; use `~> <major>.N` (pessimistic-minor) to allow minor and patch to change; avoid deprecated `version` argument in provider blocks.
+- Example: `required_providers { aws = { source = "hashicorp/aws", version = "~> <major>.N.0" } }`.
 - v6 introduced per-resource `region` argument (most resources accept a top-level `region`; global services — IAM, CloudFront, Route 53 — do not), removed OpsWorks / SimpleDB / Worklink, retyped launch-template booleans, and removed the `aws_eip` `vpc` argument (use `domain`).
 
 ## ForceNew traps (identity churn)
