@@ -4,7 +4,7 @@ Plan-only, failure-mode-first Terraform orchestrator for **AWS, Azure, GCP and O
 
 **Strictly plan-only: it never runs `apply` or `destroy`.**
 
-- Version: `0.1.0` <!-- x-release-please-version --> · License: MIT
+- Version: `0.1.1` <!-- x-release-please-version --> · License: MIT
 - Authoritative spec: [`SKILL.md`](./SKILL.md)
 
 ## When it activates
