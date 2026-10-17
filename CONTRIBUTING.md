@@ -12,7 +12,7 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-The hook suite covers whitespace, EOF, JSON/YAML syntax, large files, private keys, secret detection, Markdown linting, shell linting/formatting, Codex plugin manifest validation, and Agent Skill frontmatter validation.
+The hook suite covers whitespace, EOF, JSON/YAML syntax, large files, private keys, secret detection, Markdown linting, shell linting/formatting, Codex plugin manifest validation, Agent Skill frontmatter validation, and release version consistency.
 
 `shellcheck` and `shfmt` must be installed on developer machines for the shell hooks. CI installs them automatically.
 
@@ -63,6 +63,16 @@ python scripts/validate_skill_frontmatter.py
 ```
 
 This validates frontmatter fields, skill naming, `compatibility`, metadata shape, and space-separated `allowed-tools`.
+
+## Release version fields
+
+Versions are owned by release-please, and the manifest (`.release-please-manifest.json`) is the source of truth. On each release it rewrites both `plugin.json` files, `.claude-plugin/marketplace.json` (`version` and `metadata.version`), and the version lines in the skill's `SKILL.md` (`metadata.version`) and `README.md`, using the `extra-files` in `release-please-config.json` and the `x-release-please-version` markers. Do not edit those fields by hand, and do not set a `version` on the marketplace plugin entry: Claude Code reads the plugin version from `plugin.json` and ignores the entry value.
+
+```bash
+python scripts/validate_versions.py
+```
+
+This checks that every version field matches the manifest, so a field that release-please does not rewrite fails the pre-commit hook and CI instead of drifting silently.
 
 ## Terraform validation script smoke test
 

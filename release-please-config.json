@@ -17,6 +17,24 @@
           "type": "json",
           "path": "plugins/terraform-multicloud-orchestrator/.codex-plugin/plugin.json",
           "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": ".claude-plugin/marketplace.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": ".claude-plugin/marketplace.json",
+          "jsonpath": "$.metadata.version"
+        },
+        {
+          "type": "generic",
+          "path": "plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/SKILL.md"
+        },
+        {
+          "type": "generic",
+          "path": "plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/README.md"
         }
       ]
     }
