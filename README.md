@@ -145,7 +145,8 @@ terraform-orchestrator-skill/              # repository root
 │               ├── scripts/                # reusable validation chain
 │               └── references/            # 4 mechanism + 4 per-cloud files
 ├── examples/
-│   └── aws-vpc/README.md                  # sample session walkthrough
+│   ├── aws-vpc/README.md                  # sample session walkthrough (AWS)
+│   └── azure-vnet/README.md               # sample session walkthrough (Azure)
 ├── README.md
 ├── CONTRIBUTING.md
 ├── CHANGELOG.md
