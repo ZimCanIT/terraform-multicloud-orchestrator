@@ -5,7 +5,7 @@ license: MIT
 compatibility: Designed for Claude Code, Codex, and Agent Skills-compatible coding agents. Requires Terraform or OpenTofu CLI for validation, internet access for provider documentation and module/provider downloads, and cloud credentials only when plan commands need them.
 metadata:
   author: Joshua Musiyarira (ZimCanIT)
-  version: "0.0.1"
+  version: "0.0.2" # x-release-please-version
   repository: https://github.com/ZimCanIT/terraform-multicloud-orchestrator
   homepage: https://github.com/ZimCanIT/terraform-multicloud-orchestrator
 allowed-tools: Read Grep Glob WebFetch WebSearch Bash(terraform init:*) Bash(terraform validate:*) Bash(terraform plan:*) Bash(terraform show:*) Bash(terraform fmt:*) Bash(terraform get:*) Bash(terraform providers:*) Bash(terraform state list:*) Bash(tofu init:*) Bash(tofu validate:*) Bash(tofu plan:*) Bash(tofu show:*) Bash(tofu fmt:*) Bash(tofu get:*) Bash(tofu providers:*) Bash(tofu state list:*) Bash(jq:*)

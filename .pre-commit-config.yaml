@@ -58,3 +58,10 @@ repos:
         entry: python scripts/validate_skill_frontmatter.py
         pass_filenames: false
         files: "(^|/)SKILL\\.md$|^scripts/validate_skill_frontmatter\\.py$"
+
+      - id: validate-versions
+        name: validate release version fields agree
+        language: python
+        entry: python scripts/validate_versions.py
+        pass_filenames: false
+        files: "(^|/)(plugin|marketplace)\\.json$|^\\.release-please-manifest\\.json$|(^|/)(SKILL|README)\\.md$|^scripts/validate_versions\\.py$"
