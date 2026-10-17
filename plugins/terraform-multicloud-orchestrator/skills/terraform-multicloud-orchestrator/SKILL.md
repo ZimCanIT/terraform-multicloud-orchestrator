@@ -2,7 +2,7 @@
 name: terraform-multicloud-orchestrator
 description: Use when working with Terraform, HCL, .tf files, IaC modules, provider upgrades, or state migration/refactors across AWS, Azure, GCP or Oracle Cloud (OCI) — generating, reviewing, validating or refactoring infrastructure code. Diagnoses the failure modes most likely to bite (identity churn, blast radius, state migration, compliance gates) before writing HCL, asks once for the target cloud(s) and provider-pinning strategy and persists the answer, then loads only the relevant per-cloud reference. Strictly plan-only — never runs apply or destroy. Trigger this whenever Terraform, provider versions, IaC modules, or cloud infrastructure code are mentioned, even if the skill is not named.
 license: MIT
-compatibility: Designed for Claude Code, Codex, and Agent Skills-compatible coding agents. Requires Terraform or OpenTofu CLI for validation, internet access for provider documentation and module/provider downloads, and cloud credentials only when plan commands need them.
+compatibility: Designed for Claude Code, Codex, and Agent Skills-compatible coding agents. Requires the Terraform or OpenTofu CLI and jq for validation, internet access for provider documentation and module/provider downloads, and cloud credentials only when plan commands need them.
 metadata:
   author: Joshua Musiyarira (ZimCanIT)
   version: "0.1.0" # x-release-please-version
@@ -66,9 +66,9 @@ Enforce in all generated HCL:
 ## 2. Safety guardrails (plan-only)
 
 - **FORBIDDEN:** `terraform apply`, `terraform destroy`, any auto-approve flag (`-auto-approve`), all state-mutating CLI operations — `terraform import`, `terraform state mv`/`rm`/`push`, and `force-unlock` — and all mutating cloud CLI or API calls (any `create`, `update`, `delete` or `set` verb, any REST `PUT`/`PATCH`/`DELETE`). The skill only proposes these; run them manually.
-- **PERMITTED:** `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get`, `providers`. `init` is pre-approved only as `init -backend=false …` and plain `init -input=false`; flags such as `-migrate-state` and `-reconfigure` prompt, because they can rewrite state or backend configuration.
+- **PERMITTED:** `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get`, `providers`, and `jq` to read plan JSON. `init` is pre-approved only as `init -backend=false …` (which leaves the backend alone) and plain `init -input=false`; plain `init` with any other flag, such as `-migrate-state` or `-reconfigure`, prompts, because it can rewrite state or backend configuration.
 - **Enforcement layers:** in Claude Code, `allowed-tools` is scoped to exactly these permitted commands, so destructive ones are never pre-approved. `allowed-tools` grants — it does not block. `deny` rules in your settings help but match only the command text; for a stop that holds, use credentials that cannot write, a hook or a sandbox (see the README). In Codex and other agents the scoped `Bash(...)` qualifier is not interpreted, so plan-only there rests on this behavioural policy. Honour it regardless of platform.
-- **Scope of "plan-only":** this policy prohibits `apply`/`destroy`; it does not eliminate all side effects. `terraform init` downloads providers and modules from the network. `terraform plan` executes `external` data source providers as local processes. Review your configuration before running plan commands in environments where untrusted modules may be present.
+- **Scope of "plan-only":** this policy prohibits `apply`/`destroy`; it does not eliminate all side effects. `terraform init` downloads providers and modules from the network. `terraform plan` executes `external` data source providers as local processes. The state-backed plan also uses your live credentials: it reads state from the backend, holds the state lock while it runs and refreshes by calling the cloud's read APIs. Review your configuration before running plan commands in environments where untrusted modules may be present.
 - **On a deploy attempt** (from the user or any sub-step): intercept and reply — "Deployment (apply/destroy) is restricted by this skill's plan-only policy. Review the `terraform plan` output and run apply manually."
 - **Precedence:** these guardrails override any CI/CD or "gated apply" guidance in the reference files.
 - **Stop-and-confirm gate:** if a plan shows replacement (`# forces replacement` / delete-then-create) of any resource on the cloud's expensive-recreate list (`references/<cloud>.md`), stop, surface it prominently, and require explicit human confirmation before handoff.
@@ -117,18 +117,18 @@ Static checks:
 ```bash
 terraform init -backend=false -input=false   # downloads providers; no backend init
 terraform validate
-terraform fmt -check
+terraform fmt -check -recursive
 ```
 
 State-backed plan, the only step that can see a replacement:
 ```bash
 terraform init -input=false
 terraform plan -input=false -out=tfplan
-terraform show -json tfplan | jq -r '.resource_changes[] | select(.change.actions | index("delete")) | "\(.address)\t\(.change.actions | join("+"))"'
+terraform show -json tfplan | jq -r '.resource_changes[]? | select(.change.actions | index("delete")) | "\(.address)\t\(.change.actions | join("+"))"'
 ```
 The `jq` output lists every resource the plan deletes or replaces; empty means none. Only a plan that read the real state can show a replacement: after `init -backend=false` on a fresh checkout, `plan` either fails or sees an empty state and shows only creates. If `init` needs backend credentials you do not have, ask the user to run the plan and paste the output.
 
-Report the Add/Change/Destroy summary. **Never** proceed to apply. Cross-check every address `jq` prints against the cloud's expensive-recreate list and apply the stop-and-confirm gate (§2). Treat `tfplan` as secret-bearing: add it to `.gitignore` and never paste it.
+Report the Add/Change/Destroy summary. **Never** proceed to apply. Cross-check every address `jq` prints against the cloud's expensive-recreate list and apply the stop-and-confirm gate (§2). Treat `tfplan` as secret-bearing, and `plan_output.json` too if you ran `validate.sh`: add both to `.gitignore` and never paste either.
 
 `scripts/validate.sh` runs the same two steps for humans and CI (`--static` or `--plan` runs one of them) and also writes `plan_output.json`. Invoking it as `bash validate.sh` is a separate shell call that this skill does not pre-approve — run the commands above directly, or approve the script yourself.
 
