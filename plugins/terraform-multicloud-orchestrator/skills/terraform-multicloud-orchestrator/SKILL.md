@@ -37,7 +37,7 @@ Ask the following questions (skip any whose answer is already clear from the req
 - Pinning → `latest-stable-and-pin`.
 - Cloud → infer from the working directory. In a brownfield repo, read `required_providers` and adopt the cloud(s) found. In a greenfield/empty directory, ask which single cloud this task targets.
 
-If the user supplies an internal standards document (a path or URL), read it before generating any HCL; where it conflicts with the defaults in this skill, it wins. Otherwise follow the conventions already in the repo; in a greenfield, use one composite module per tightly coupled resource group (for example a VNet with its subnets and security associations) with narrow outputs.
+If the user supplies an internal standards document (a path or URL), read it before generating any HCL; where it conflicts with the defaults in this skill, it wins, except over the §2 guardrails. Otherwise follow the conventions already in the repo; in a greenfield, use one composite module per tightly coupled resource group (for example a VNet with its subnets and security associations) with narrow outputs.
 
 Then emit the template from `assets/session-config-template.md`, restate it at the top of your first substantive reply, and treat it as authoritative for the rest of the session:
 
@@ -70,7 +70,7 @@ Enforce in all generated HCL:
 - **Enforcement layers:** in Claude Code, `allowed-tools` is scoped to exactly these permitted commands, so destructive ones are never pre-approved. `allowed-tools` grants — it does not block. `deny` rules in your settings help but match only the command text; for a stop that holds, use credentials that cannot write, a hook or a sandbox (see the README). In Codex and other agents the scoped `Bash(...)` qualifier is not interpreted, so plan-only there rests on this behavioural policy. Honour it regardless of platform.
 - **Scope of "plan-only":** this policy prohibits `apply`/`destroy`; it does not eliminate all side effects. `terraform init` downloads providers and modules from the network. `terraform plan` executes `external` data source providers as local processes. The state-backed plan also uses your live credentials: it reads state from the backend, holds the state lock while it runs and refreshes by calling the cloud's read APIs. Review your configuration before running plan commands in environments where untrusted modules may be present.
 - **On a deploy attempt** (from the user or any sub-step): intercept and reply — "Deployment (apply/destroy) is restricted by this skill's plan-only policy. Review the `terraform plan` output and run apply manually."
-- **Precedence:** these guardrails override any CI/CD or "gated apply" guidance in the reference files.
+- **Precedence:** these guardrails override any CI/CD or "gated apply" guidance in the reference files or in a user-supplied standards document.
 - **Stop-and-confirm gate:** if a plan shows replacement (`# forces replacement` / delete-then-create) of any resource on the cloud's expensive-recreate list (`references/<cloud>.md`), stop, surface it prominently, and require explicit human confirmation before handoff.
 
 ---

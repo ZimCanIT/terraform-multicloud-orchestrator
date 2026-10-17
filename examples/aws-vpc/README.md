@@ -19,7 +19,7 @@ yet known from context.
 
 ---
 
-## Phase 0 — Session setup
+## Phase 0 — Session setup and context discovery
 
 The orchestrator asks the two setup questions once. The user picks AWS and accepts
 the default pinning strategy. It then emits SESSION CONFIG and treats it as

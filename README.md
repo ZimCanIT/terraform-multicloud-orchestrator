@@ -185,6 +185,7 @@ The minimum publish gates are:
 agentskills validate plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
 python scripts/validate_codex_plugin.py
 python scripts/validate_skill_frontmatter.py
+python scripts/validate_versions.py
 ```
 
 The first gate runs in CI on every push and pull request (`.github/workflows/skill-validation.yml`); see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for details.
@@ -197,7 +198,7 @@ Plan-only. The skill stages and validates Terraform but never deploys; the `appl
 
 ### Enforcing plan-only (optional)
 
-In Claude Code the skill's `allowed-tools` is scoped to the plan-only commands, so `apply`/`destroy` are never auto-approved, and `init` is pre-approved only as `init -backend=false …` and plain `init -input=false`. Because `allowed-tools` grants rather than blocks, you can add `deny` rules to your own `.claude/settings.json` as a guard rail:
+In Claude Code the skill's `allowed-tools` is scoped to the plan-only commands, so the skill never pre-approves `apply`/`destroy`, and `init` is pre-approved only as `init -backend=false …` and plain `init -input=false`. Because `allowed-tools` grants rather than blocks, you can add `deny` rules to your own `.claude/settings.json` as a guard rail:
 
 ```json
 {
