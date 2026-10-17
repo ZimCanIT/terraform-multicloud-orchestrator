@@ -1,8 +1,10 @@
 # Terraform Multi-Cloud Orchestrator
 
-A plan-only, failure-mode-first Terraform agent skill for **AWS, Azure, GCP and Oracle Cloud (OCI)**.
+A plan-only, failure-mode-first Terraform agent skill for **AWS, Azure, GCP and Oracle Cloud (OCI) Public Clouds**.
 
-Before it writes any HCL, the skill checks the failure modes most likely to bite: identity churn, blast radius, state migration and compliance gates. On first use it asks which clouds you target and how you want provider versions pinned. It keeps those answers for the session and loads only the reference files for the clouds you named.
+**Failure-mode first** means the skill starts from how a change is most likely to go wrong, not from the code. Before it writes any HCL, it checks four risks: identity churn (Terraform plans a destroy and recreate when you meant an in-place update), blast radius (the resources one `apply` can change or destroy), state migration (moving resources between states or addresses without losing track of them) and compliance gates (the policy, residency and approval checks the plan must pass).
+
+On first use it asks which clouds you target and how you want provider versions pinned. It keeps those answers for the session and loads only the reference files for the clouds you named.
 
 `apply` and `destroy` are restricted. The skill never runs them and never pre-approves them. See [Safety](#safety).
 
@@ -25,9 +27,16 @@ Run these inside Claude Code:
 
 Restart Claude Code after installing. To get later releases, run `/plugin marketplace update zimcanit-marketplace`.
 
-In a terminal, use `claude plugin marketplace add` and `claude plugin install` with the same arguments. Pasting `claude plugin` commands into a chat only sends them to the model as text, so they don't run.
+In a terminal, outside Claude Code, run these two commands:
 
-For a local checkout, pass the checkout path to `marketplace add` instead of the GitHub name.
+```bash
+claude plugin marketplace add ZimCanIT/terraform-multicloud-orchestrator
+claude plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
+```
+
+Inside Claude Code, use the `/plugin` commands above instead. Typing `claude plugin` at the Claude Code prompt sends it to the model as plain text, not a command.
+
+For a local checkout, replace `ZimCanIT/terraform-multicloud-orchestrator` with the path to the repository root, for example `~/src/terraform-multicloud-orchestrator`.
 
 ### Codex
 
@@ -61,7 +70,7 @@ Otherwise, copy that folder into the agent's skills directory. For Claude Code, 
 - The skill never runs `terraform apply` or `terraform destroy`, and never uses `-auto-approve`.
 - It also refuses state-changing commands (`import`, `state mv`, `state rm`, `state push`, `force-unlock`) and cloud CLI or API calls that create, update or delete resources.
 - If asked to deploy, it replies that apply and destroy are restricted, then tells you to review the plan and run apply yourself.
-- Only the operator can lift the restriction, by editing the skill's guardrails. Requests in a session or in a standards document don't override them.
+- An operator can lift any of these restrictions by editing the skill's guardrails. Requests in a session or in a standards document don't override them.
 
 "Plan-only" doesn't mean offline. `terraform init` downloads providers, and `terraform plan` runs `external` data sources as local processes. Review a configuration before you plan against a module you don't trust. Plan files can contain secrets: add `tfplan` and `plan_output.json` to `.gitignore`, and never paste them.
 
