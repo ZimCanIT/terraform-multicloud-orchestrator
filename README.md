@@ -2,205 +2,72 @@
 
 A plan-only, failure-mode-first Terraform agent skill for **AWS, Azure, GCP and Oracle Cloud (OCI)**.
 
-The skill diagnoses the failure modes most likely to bite — identity churn, blast radius, state migration, compliance gates — before it writes any HCL. It asks once which cloud(s) you are targeting and how you want provider versions pinned, persists that answer for the session, then loads only the per-cloud reference it actually needs. It never runs `apply` or `destroy`.
+Before it writes any HCL, the skill checks the failure modes most likely to bite: identity churn, blast radius, state migration and compliance gates. On first use it asks which clouds you target and how you want provider versions pinned. It keeps those answers for the session and loads only the reference files for the clouds you named.
 
-This repository is three things at once:
+`apply` and `destroy` are restricted. The skill never runs them and never pre-approves them. See [Safety](#safety).
 
-1. A **Claude Code plugin marketplace** — add it once, install the plugin, done.
-2. A **Codex-compatible plugin package** — the plugin root includes `.codex-plugin/plugin.json` and a bundled `skills/` directory.
-3. A **portable Agent Skill** — the `skills/terraform-multicloud-orchestrator/` folder is a self-contained `SKILL.md` plus references, scripts, assets, and eval queries that drops into any agent that supports the Agent Skills standard.
+This repository ships three things:
 
----
+- **A Claude Code plugin marketplace.** Add it once, then install the plugin.
+- **A Codex plugin package.** The plugin includes `.codex-plugin/plugin.json` and a bundled `skills/` folder.
+- **A portable Agent Skill.** The `skills/terraform-multicloud-orchestrator/` folder is self-contained: `SKILL.md`, references, scripts, assets and eval queries.
 
-## Quick install
+## Install
 
-Use one of these paths.
+### Claude Code
 
-### Direct skill load
-
-Use this when your agent supports loading an Agent Skill directly from a public repository URL:
-
-```text
-load this skill https://github.com/ZimCanIT/terraform-multicloud-orchestrator/tree/main/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
-```
-
-This loads only the portable skill folder.
-
-### Claude Code plugin install
-
-Use this when you want the marketplace-backed Claude Code plugin:
+Run these inside Claude Code:
 
 ```text
 /plugin marketplace add ZimCanIT/terraform-multicloud-orchestrator
 /plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
 ```
 
-Run those as Claude Code slash commands inside Claude Code itself.
+Restart Claude Code after installing. To get later releases, run `/plugin marketplace update zimcanit-marketplace`.
 
-If you are in a normal terminal window instead of inside Claude Code, use the CLI equivalent:
+In a terminal, use `claude plugin marketplace add` and `claude plugin install` with the same arguments. Pasting `claude plugin` commands into a chat only sends them to the model as text, so they don't run.
 
-```bash
-claude plugin marketplace add ZimCanIT/terraform-multicloud-orchestrator
-claude plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
-```
+For a local checkout, pass the checkout path to `marketplace add` instead of the GitHub name.
 
-Do not paste `claude plugin ...` as plain chat text inside Claude Code. That only sends the text to the model; it does not execute the command.
-
-For local development from a checkout:
-
-```text
-/plugin marketplace add C:\Users\sumjsaniso\Documents\projects\terraform-orchestrator-skill
-/plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
-```
-
-Terminal equivalent:
-
-```bash
-claude plugin marketplace add C:\Users\sumjsaniso\Documents\projects\terraform-orchestrator-skill
-claude plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
-```
-
-After install, restart Claude Code so the newly installed skill is loaded at startup.
-
-Update later inside Claude Code with:
-
-```text
-/plugin marketplace update zimcanit-marketplace
-```
-
-### Codex marketplace install
+### Codex
 
 ```bash
 codex plugin marketplace add ZimCanIT/terraform-multicloud-orchestrator
 codex plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
 ```
 
-For local development from a checkout:
+### Other Agent Skills agents
 
-```bash
-codex plugin marketplace add C:\Users\sumjsaniso\Documents\projects\terraform-orchestrator-skill
-codex plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
+If your agent can load a skill from a URL, give it the skill folder:
+
+```text
+load this skill https://github.com/ZimCanIT/terraform-multicloud-orchestrator/tree/main/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
 ```
 
-## What it does
+Otherwise, copy that folder into the agent's skills directory. For Claude Code, that is `~/.claude/skills/`. Skill paths change between agent releases, so check your agent's documentation.
 
-- **Cloud-agnostic spine, per-cloud leaves.** The workflow, safety policy, pinning logic and state mechanics are cloud-neutral. Cloud-specific facts (ForceNew traps, expensive-to-recreate resources, provider-upgrade notes, tagging semantics, policy tooling, module namespaces) live in `references/aws.md`, `azure.md`, `gcp.md`, `oci.md` and load on demand.
-- **Ask once, then persist.** On first use it asks for target cloud(s) and a pinning strategy (`exact` / `pessimistic-minor` / `pessimistic-patch` / `latest-stable-and-pin`), emits a `SESSION CONFIG` block, and treats it as authoritative for the rest of the session.
-- **Plan-only by policy.** `apply`, `destroy` and `-auto-approve` are forbidden. The agent runs only `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get`, `providers`, plus `jq` to read plan JSON. Any planned replacement of an expensive resource triggers a stop-and-confirm gate.
-- **Structured output.** Every response carries a response contract: assumptions and version floor, risk category addressed, remediation and tradeoffs, a validation plan, and rollback notes.
+## How it works
 
-## Authoring with provider MCP servers (fix-forward)
-
-The skill favours a **fix-forward** approach: rather than destroying and recreating, you author a corrective change and re-plan. That only works when the HCL matches the provider's *current* schema, so pair the skill with the relevant cloud provider's registered [MCP](https://modelcontextprotocol.io) server. The skill drives failure-mode diagnosis, generation and plan-only validation; the MCP server grounds it in live, authoritative provider documentation so generated and corrected resources stay accurate against the latest API.
-
-For example, the [Microsoft Learn MCP server](https://learn.microsoft.com) gives the agent live access to current Azure and `azurerm` documentation. Installation instructions: [Grounding Claude Code with the Microsoft Learn MCP Server](https://medium.com/@zimcanit/grounding-claude-code-with-the-microsoft-learn-mcp-server-9b2f2d517fb7). Register the equivalent provider MCP server for whichever cloud(s) you target.
-
-## Portable skill path
-
-The skill lives at:
-
-```
-plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/
-├── SKILL.md
-├── eval_queries.json
-├── assets/
-├── scripts/
-└── references/
-    ├── identity-churn.md   blast-radius.md   migration-playbooks.md   compliance-gates.md
-    └── aws.md   azure.md   gcp.md   oci.md
-```
-
-If direct URL loading is unavailable, copy that folder into the agent's skills directory. Common locations are listed below — verify against your agent's current documentation, as paths change between versions:
-
-| Agent | Typical skills directory |
-|---|---|
-| Claude Code (manual) | `~/.claude/skills/terraform-multicloud-orchestrator/` |
-| Cursor / other agents | `.agents/skills/` or the agent's configured skills path |
-| Gemini CLI | `.gemini/skills/terraform-multicloud-orchestrator/` |
-
-The skill triggers automatically when its description matches your task — no slash command required.
-
----
-
-## Layout
-
-```
-terraform-orchestrator-skill/              # repository root
-├── .agents/
-│   └── plugins/
-│       └── marketplace.json               # Codex marketplace catalog
-├── .claude-plugin/
-│   └── marketplace.json                   # Claude Code marketplace catalog
-├── plugins/
-│   └── terraform-multicloud-orchestrator/
-│       ├── .codex-plugin/
-│       │   └── plugin.json                # Codex plugin manifest
-│       ├── .claude-plugin/
-│       │   └── plugin.json                # plugin manifest
-│       └── skills/
-│           └── terraform-multicloud-orchestrator/
-│               ├── SKILL.md               # cloud-agnostic spine (authoritative copy)
-│               ├── eval_queries.json       # trigger regression set
-│               ├── assets/                 # output templates
-│               ├── scripts/                # reusable validation chain
-│               └── references/            # 4 mechanism + 4 per-cloud files
-├── examples/
-│   ├── aws-vpc/README.md                  # sample session walkthrough (AWS)
-│   ├── azure-vnet/README.md               # sample session walkthrough (Azure)
-│   └── gcp-vpc/README.md                  # sample session walkthrough (GCP)
-├── README.md
-├── CONTRIBUTING.md
-├── CHANGELOG.md
-└── LICENSE
-```
-
-## Validation
-
-Before publishing, run the checks in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
-
-Install local pre-commit hooks:
-
-```bash
-python -m pip install pre-commit
-pre-commit install
-pre-commit run --all-files
-```
-
-On Windows, install the shell lint tools used by pre-commit:
-
-```powershell
-choco install shellcheck shfmt -y
-refreshenv
-```
-
-If `pre-commit` cannot write to your default user cache, use a repo-local cache:
-
-```powershell
-$env:PRE_COMMIT_HOME=".tmp/pre-commit-cache"
-pre-commit run --all-files
-```
-
-The minimum publish gates are:
-
-```bash
-# install once: python -m pip install skills-ref==0.1.1 (the package's CLI is named `agentskills`)
-agentskills validate plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
-python scripts/validate_codex_plugin.py
-python scripts/validate_skill_frontmatter.py
-python scripts/validate_versions.py
-```
-
-The first gate runs in CI on every push and pull request (`.github/workflows/skill-validation.yml`); see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for details.
-
----
+- **Shared spine, per-cloud references.** The workflow, guardrails, pinning rules and state handling are cloud-neutral. Cloud facts live in `references/aws.md`, `azure.md`, `gcp.md` and `oci.md`: ForceNew traps, resources that are expensive to recreate, provider upgrade notes, tagging and policy tooling. Each file loads only when needed.
+- **Ask once.** It asks for target clouds and a pinning strategy (`exact`, `pessimistic-minor`, `pessimistic-patch` or `latest-stable-and-pin`), then records both in a `SESSION CONFIG` block it follows for the rest of the session.
+- **Plan-only.** It runs `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get` and `providers`, plus `jq` to read plan JSON. A planned replacement of an expensive resource triggers a stop-and-confirm gate.
+- **Automatic.** It triggers when a request matches its description. There is no slash command.
+- **A fixed response shape.** Each answer gives its assumptions and version floor, the risk it addresses, remediation and tradeoffs, a validation plan, and rollback notes.
 
 ## Safety
 
-Plan-only. The skill stages and validates Terraform but never deploys; the `apply` step is always manual and out of scope. Note that "plan-only" means no `apply`/`destroy` — `terraform init` still downloads providers from the network and `terraform plan` executes `external` data source providers as local processes. Review your configuration before running plan commands against untrusted modules.
+`apply` and `destroy` are restricted.
 
-### Enforcing plan-only (optional)
+- The skill never runs `terraform apply` or `terraform destroy`, and never uses `-auto-approve`.
+- It also refuses state-changing commands (`import`, `state mv`, `state rm`, `state push`, `force-unlock`) and cloud CLI or API calls that create, update or delete resources.
+- If asked to deploy, it replies that apply and destroy are restricted, then tells you to review the plan and run apply yourself.
+- Only the operator can lift the restriction, by editing the skill's guardrails. Requests in a session or in a standards document don't override them.
 
-In Claude Code the skill's `allowed-tools` is scoped to the plan-only commands, so the skill never pre-approves `apply`/`destroy`, and `init` is pre-approved only as `init -backend=false …` and plain `init -input=false`. Because `allowed-tools` grants rather than blocks, you can add `deny` rules to your own `.claude/settings.json` as a guard rail:
+"Plan-only" doesn't mean offline. `terraform init` downloads providers, and `terraform plan` runs `external` data sources as local processes. Review a configuration before you plan against a module you don't trust. Plan files can contain secrets: add `tfplan` and `plan_output.json` to `.gitignore`, and never paste them.
+
+### Enforce it in Claude Code (optional)
+
+The skill's `allowed-tools` grants commands rather than blocking them. To block the restricted commands outright, add these deny rules to `.claude/settings.json`:
 
 ```json
 {
@@ -229,15 +96,54 @@ In Claude Code the skill's `allowed-tools` is scoped to the plan-only commands, 
 }
 ```
 
-Treat these rules as a guard rail, not a security boundary. A `deny` rule matches the command text Claude writes, so `Bash(terraform apply:*)` does not match `terraform -chdir=envs/prod apply`, `sh -c 'terraform apply'` or an absolute path to the binary. In a test with an equivalent rule on `terraform version`, the plain spelling was blocked while the `-chdir` and `sh -c` spellings ran. Claude Code's [permissions documentation](https://code.claude.com/docs/en/permissions#bash-rule-limits) lists the same limits.
+Treat these as a guard rail, not a security boundary. Deny rules match the command text, so `terraform -chdir=envs/prod apply` and `sh -c 'terraform apply'` can get past them. For a hard stop, give the agent credentials that can read and plan but not write, or add a PreToolUse hook that inspects the full command. Codex and other agents don't read `Bash(...)` rules, so there plan-only rests on the skill's instructions and the credentials you supply.
 
-For a stop that holds whatever the spelling, use one of these instead of, or as well as, the rules:
+## Validation
 
-- Give the agent credentials that can read and plan but not write (a read-only or plan-only role), so an `apply` cannot succeed.
-- Add a [PreToolUse hook](https://code.claude.com/docs/en/hooks) that inspects the full command, or run Claude Code in a [sandbox](https://code.claude.com/docs/en/sandboxing).
+Install the hooks once, then run them before you publish:
 
-Codex and other agents do not interpret these `Bash(...)` qualifiers; on those platforms plan-only rests on the skill's behavioural policy and on the credentials you give the agent.
+```bash
+python -m pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
 
-## Attribution and licence
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the shell tools the hooks need, and the repo-local cache to use if pre-commit can't write to your default one. The minimum gates are:
 
-The failure-mode-first methodology is inspired by [TerraShark](https://github.com/LukasNiessen/terrashark) (MIT). The diagnose-first routing and response-contract structure are inspired by [Anton Babenko's terraform-skill](https://github.com/antonbabenko/terraform-skill) (Apache-2.0). All reference content here is original. Licensed under [MIT](./LICENSE).
+```bash
+python -m pip install skills-ref==0.1.1   # provides the agentskills CLI
+agentskills validate plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
+python scripts/validate_codex_plugin.py
+python scripts/validate_skill_frontmatter.py
+python scripts/validate_versions.py
+```
+
+CI runs `agentskills validate` (`.github/workflows/skill-validation.yml`) and the full pre-commit set (`.github/workflows/pre-commit.yml`) on every push to `main` and on every pull request.
+
+Releases are automated with release-please, so write commit messages in Conventional Commit style. See [CONTRIBUTING.md](CONTRIBUTING.md) for the rest.
+
+## Layout
+
+```text
+.claude-plugin/marketplace.json      Claude Code marketplace catalog
+.agents/plugins/marketplace.json     Codex marketplace catalog
+plugins/terraform-multicloud-orchestrator/
+├── .claude-plugin/plugin.json
+├── .codex-plugin/plugin.json
+└── skills/terraform-multicloud-orchestrator/
+    ├── SKILL.md                     workflow, guardrails, response contract
+    ├── eval_queries.json            trigger regression set
+    ├── assets/                      session config and report templates
+    ├── scripts/validate.sh          static and plan validation chain
+    └── references/                  4 mechanism files and 4 per-cloud files
+examples/                            sample sessions for AWS, Azure and GCP
+scripts/                             repository validators
+```
+
+## Pair it with provider docs
+
+The skill favours fix-forward: correct the HCL and re-plan, rather than destroy and recreate. That only works if the HCL matches the provider's current schema, so connect the documentation MCP server for each cloud you target. For Azure, the [Microsoft Learn MCP server](https://learn.microsoft.com) gives live access to current Azure and `azurerm` documentation. [This article](https://medium.com/@zimcanit/grounding-claude-code-with-the-microsoft-learn-mcp-server-9b2f2d517fb7) covers setup.
+
+## Licence and attribution
+
+The failure-mode-first method is inspired by [TerraShark](https://github.com/LukasNiessen/terrashark) (MIT). The diagnose-first routing and response contract are inspired by [Anton Babenko's terraform-skill](https://github.com/antonbabenko/terraform-skill) (Apache-2.0). The reference content is original. Licensed under [MIT](LICENSE).
