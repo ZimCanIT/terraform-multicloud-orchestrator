@@ -10,7 +10,7 @@ All moves are plan-verified and reversible. Never apply a "move" you have not fi
     to   = aws_db_instance.new
   }
   ```
-  The plan should show a move, not a destroy+create. Never use `moved` across resource types or across state files.
+  The plan should show a move, not a destroy+create. Never use `moved` across state files. Across resource types it works only where the target provider supports it (Terraform 1.8+); otherwise use `removed` + `import`.
 - `count`↔`for_each` conversion: use one `moved` per element to map old indexes to new keys.
 
 ## Import existing resources

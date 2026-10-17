@@ -144,17 +144,13 @@ Apply the strategy from SESSION CONFIG. General rules regardless of strategy:
 - Child/reusable modules: set broad minimums (`>= 6.0`), let the **root** module resolve, to avoid diamond-dependency `init` failures.
 - Keep provider/runtime upgrades in a separate PR from functional change. Upgrade one major at a time.
 
-Current provider majors (verify the exact latest stable at research time):
-- AWS `hashicorp/aws` → **v6.x**
-- Azure `hashicorp/azurerm` → **v4.x**
-- Google `hashicorp/google` (+ `google-beta`) → **v7.x**
-- Oracle `oracle/oci` → **v8.x**
+Never rely on a remembered provider major: resolve the current one at research time from the registry or the provider's GitHub releases.
 
 ---
 
 ## 7. State migration mechanics (cloud-agnostic)
 
-- `moved` (TF 1.1+) — rename/relocate or `count`↔`for_each` within one state file. Never cross-type, never cross-state-file.
+- `moved` (TF 1.1+) — rename/relocate or `count`↔`for_each` within one state file. Never across state files. Across resource types only where the target provider supports it (TF 1.8+); otherwise use `removed` + `import`.
 - `import` (TF 1.5+) — config-driven import of existing resources.
 - `removed` (TF 1.7+) — drop from state without destroying; pair with `lifecycle { destroy = false }`.
 - `terraform state mv` — cross-state-file moves.
