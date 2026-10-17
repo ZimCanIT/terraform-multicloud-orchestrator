@@ -14,7 +14,7 @@ Blast radius = the set of resources a single `apply` can change or destroy. Smal
 
 ## Procedure
 1. Before a wide change, check how many resources the plan touches and whether prod and non-prod share the state.
-2. If the stack is monolithic, propose a split (see `migration-playbooks.md` → state split) rather than applying broadly.
+2. If the stack is monolithic, propose a split (see `migration-playbooks.md` → Cross-state moves) rather than applying broadly.
 
 ## Gotchas
 - Avoid: shared prod/non-prod state.
