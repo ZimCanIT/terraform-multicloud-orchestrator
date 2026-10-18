@@ -14,7 +14,7 @@ pre-commit run --all-files
 
 The hook suite covers whitespace, EOF, JSON/YAML syntax, large files, private keys, secret detection, Markdown linting, shell linting/formatting, Codex plugin manifest validation, Agent Skill frontmatter validation, and release version consistency.
 
-`shellcheck` and `shfmt` must be installed on developer machines for the shell hooks. CI installs them automatically.
+The shell hooks run `shellcheck` and `shfmt` from pinned pre-commit repositories, so developers need no separate install. `gitleaks` scans staged changes locally; CI scans the whole tree with `detect-secrets`.
 
 If `pre-commit` cannot write to your default user cache, use a repo-local cache:
 
