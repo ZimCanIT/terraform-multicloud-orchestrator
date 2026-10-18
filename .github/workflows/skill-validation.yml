@@ -9,22 +9,50 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   agentskills-validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
 
       - name: Install Agent Skills reference validator
         # PyPI package `skills-ref` installs a CLI named `agentskills` (source: agentskills/agentskills).
         run: python -m pip install "skills-ref==0.1.1"
 
-      - name: Validate Agent Skill
-        run: agentskills validate plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
+      - name: Validate every Agent Skill
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          skill_dirs=(plugins/*/skills/*/)
+          if [ "${#skill_dirs[@]}" -eq 0 ]; then
+            echo "::error::No Agent Skill directories found under plugins/*/skills/*/" >&2
+            exit 1
+          fi
+          for skill_dir in "${skill_dirs[@]}"; do
+            echo "Validating ${skill_dir}"
+            agentskills validate "${skill_dir}"
+          done
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code@2.1.302
+
+      - name: Validate plugin manifests
+        run: claude plugin validate .

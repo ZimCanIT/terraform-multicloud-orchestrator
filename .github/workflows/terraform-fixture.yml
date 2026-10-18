@@ -1,0 +1,81 @@
+name: terraform-fixture
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.16.6"
+          terraform_wrapper: false
+
+      - name: Check the replacement gate against the fixture
+        shell: bash
+        env:
+          SKILL_DIR: plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
+          FIXTURE_DIR: tests/fixtures/terraform-data
+        run: |
+          set -euo pipefail
+          skill="${GITHUB_WORKSPACE}/${SKILL_DIR}"
+          fixture="${GITHUB_WORKSPACE}/${FIXTURE_DIR}"
+          work="$(mktemp -d "${RUNNER_TEMP}/terraform-fixture.XXXXXX")"
+          cp -R "${fixture}/." "${work}/"
+          cd "${work}"
+
+          # This is CI test scaffolding that creates local state for the fixture; the skill itself never applies.
+          terraform init -input=false
+          terraform apply -auto-approve -input=false
+
+          # 1. Static checks read no state. Expect exit 0 and the "NOT performed" notice.
+          bash "${skill}/scripts/validate.sh" --static | tee "${RUNNER_TEMP}/static.out"
+          grep -q "Replacement check NOT performed" "${RUNNER_TEMP}/static.out"
+
+          # 2. Change the default in this copy only. The change forces a replacement.
+          sed -i -E 's/(default[[:space:]]*=[[:space:]]*)"1"/\1"2"/' main.tf
+          grep -Eq 'default[[:space:]]*=[[:space:]]*"2"' main.tf
+
+          # 3. State-backed plan with the gate. Expect exit code 3 because the plan replaces a resource.
+          plan_out="${RUNNER_TEMP}/plan.out"
+          set +e
+          bash "${skill}/scripts/validate.sh" --plan --fail-on-delete > "${plan_out}" 2>&1
+          rc=$?
+          set -e
+          cat "${plan_out}"
+          if [ "${rc}" -ne 3 ]; then
+            echo "::error::validate.sh --plan --fail-on-delete exited ${rc}, expected 3" >&2
+            exit 1
+          fi
+
+          # 4. First real check of where Terraform puts action_reason. The terraform_data.r line
+          #    must have four tab-separated fields and a non-empty fourth field (the reason).
+          rows="$(awk 'BEGIN { FS = "\t" } $1 == "terraform_data.r"' "${plan_out}")"
+          if [ "$(printf '%s\n' "${rows}" | grep -c .)" -ne 1 ]; then
+            echo "::error::Expected exactly one terraform_data.r line in the plan output" >&2
+            exit 1
+          fi
+          fields="$(printf '%s\n' "${rows}" | awk 'BEGIN { FS = "\t" } { print NF }')"
+          reason="$(printf '%s\n' "${rows}" | awk 'BEGIN { FS = "\t" } { print $4 }')"
+          if [ "${fields}" -ne 4 ] || [ -z "${reason}" ]; then
+            echo "::error::terraform_data.r line has ${fields} fields and reason '${reason}', expected 4 fields and a non-empty reason" >&2
+            exit 1
+          fi
+          echo "action_reason for terraform_data.r: ${reason}"

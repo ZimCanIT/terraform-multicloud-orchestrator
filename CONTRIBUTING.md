@@ -42,7 +42,7 @@ Then validate the skill:
 agentskills validate plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
 ```
 
-This validates Agent Skills frontmatter, naming, and portable package structure. CI runs the same pinned check on every push and pull request (`.github/workflows/skill-validation.yml`), so the gate is enforced, not just documented.
+This validates Agent Skills frontmatter, naming, and portable package structure. CI runs the same pinned check on pull requests and on pushes to main (`.github/workflows/skill-validation.yml`), so the gate is enforced, not just documented.
 
 The package name (`skills-ref`) and the installed CLI name (`agentskills`) differ, and the upstream `main` branch renames the CLI back to `skills-ref`. Re-check the command name whenever you bump the pinned version.
 
@@ -81,3 +81,19 @@ Run from a Terraform root directory. `--static` runs the checks that need no sta
 ```bash
 bash /path/to/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/validate.sh --static
 ```
+
+## Conventional Commits
+
+Commit and PR titles use a type: feat, fix, docs, ci, chore, test or refactor. release-please reads them to choose the next version. While the version is below 1.0:
+
+- feat and fix bump the patch version.
+- A `!` after the type (for example `feat!:`) marks a breaking change and bumps the minor version.
+- docs, ci, chore and test do not bump the version.
+
+## Branch protection (recommended, not applied by this repository)
+
+Protect `main` with these settings. The repository owner applies them in the GitHub settings; this repository does not change them.
+
+- Require the `pre-commit` and `agentskills-validate` status checks.
+- Require pull requests before merging.
+- Allow squash merges only.
