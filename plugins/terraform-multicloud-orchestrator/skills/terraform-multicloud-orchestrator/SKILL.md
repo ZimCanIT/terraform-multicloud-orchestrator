@@ -74,7 +74,7 @@ Enforce in all generated HCL:
 - **Scope of "plan-only":** this policy prohibits `apply`/`destroy`; it does not eliminate all side effects. `terraform init` downloads providers and modules from the network. `terraform plan` executes `external` data source providers as local processes. The state-backed plan also uses your live credentials: it reads state from the backend, holds the state lock while it runs and refreshes by calling the cloud's read APIs. Review your configuration before running plan commands in environments where untrusted modules may be present.
 - **On a deploy attempt** (from the user or any sub-step): intercept and reply — "Deployment (apply/destroy) is restricted by this skill's plan-only policy. Review the `terraform plan` output and run apply manually."
 - **Precedence:** these guardrails override any CI/CD or "gated apply" guidance in the reference files or in a user-supplied standards document.
-- **Stop-and-confirm gate:** if a plan shows replacement (`# forces replacement` / delete-then-create) of any resource on the cloud's expensive-recreate list (`references/<cloud>.md`), stop, surface it prominently, and require explicit human confirmation before handoff.
+- **Stop-and-confirm gate:** on any plan line that deletes or replaces a resource (`# forces replacement`, `-/+` or `+/-`), check its type against the cloud's expensive-recreate table and disruptive in-place changes column (`references/<cloud>.md`). If it matches, print a GATE block with the address, the type, why it is costly and a fix-forward alternative (for example a `moved` block or a lifecycle guard). Then give the response contract and stop until the user confirms. If no state-backed plan was possible, write "Replacement check NOT performed" in the handoff; never report "no replacements" without one.
 
 ---
 
@@ -127,13 +127,13 @@ State-backed plan, the only step that can see a replacement:
 ```bash
 terraform init -input=false
 terraform plan -input=false -out=tfplan
-terraform show -json tfplan | jq -r '.resource_changes[]? | select(.change.actions | index("delete")) | "\(.address)\t\(.change.actions | join("+"))"'
+terraform show -json tfplan | jq -r 'limit(50; .resource_changes[]? | select(.change.actions | index("delete")) | "\(.address)\t\(.type)\t\(.change.actions | join("+"))\t\(.action_reason // .change.action_reason // "")")'
 ```
-The `jq` output lists every resource the plan deletes or replaces; empty means none. Only a plan that read the real state can show a replacement: after `init -backend=false` on a fresh checkout, `plan` either fails or sees an empty state and shows only creates. If `init` needs backend credentials you do not have, ask the user to run the plan and paste the output.
+The `jq` output lists every resource the plan deletes or replaces, with its type, action and reason. It prints at most 50 lines; if you see 50, say the list is truncated. Empty means none. Only a plan that read the real state can show a replacement: after `init -backend=false` on a fresh checkout, `plan` either fails or sees an empty state and shows only creates. If `init` needs backend credentials you do not have, ask the user to run the plan and paste the output.
 
-Report the Add/Change/Destroy summary. **Never** proceed to apply. Cross-check every address `jq` prints against the cloud's expensive-recreate list and apply the stop-and-confirm gate (§2). Treat `tfplan` as secret-bearing, and `plan_output.json` too if you ran `validate.sh`: add both to `.gitignore` and never paste either.
+Report the Add/Change/Destroy summary. **Never** proceed to apply. Cross-check every type `jq` prints against the cloud's expensive-recreate table and apply the stop-and-confirm gate (§2). Treat `tfplan` as secret-bearing, and `plan_output.json` too if you ran `validate.sh`: add both to `.gitignore` and never paste either.
 
-`scripts/validate.sh` runs the same two steps for humans and CI (`--static` or `--plan` runs one of them) and also writes `plan_output.json`. Invoking it as `bash validate.sh` is a separate shell call that this skill does not pre-approve — run the commands above directly, or approve the script yourself.
+`scripts/validate.sh` runs the same two steps for humans and CI. `--static` or `--plan` runs one; `--fail-on-delete` exits 3 when the plan deletes or replaces anything; `--keep-json` keeps `plan_output.json`, which is otherwise removed on exit. The script is not pre-approved for the agent: run the commands above directly, or approve the script yourself.
 
 **Phase 4 — Handoff.** Deliver the final report (§10).
 
@@ -200,7 +200,7 @@ Use `assets/final-report-template.md` as the output template.
 1. **Modular map** — tree of files created/updated.
 2. **Plan summary** — Add/Change/Destroy, with any replacement flagged and the stop-and-confirm outcome.
 3. **Output contract** — assumptions; failure modes addressed; tradeoffs; rollback/recovery.
-4. **Handoff** — "Code is staged and validated. Manual `terraform apply tfplan` is required." Name the exact plan command you ran, so the reviewer can re-run it.
+4. **Handoff** — choose one by gate status and plan kind: if the gate stopped, say so and wait for confirmation; if no state-backed plan ran, write "Replacement check NOT performed"; otherwise write "Code is staged and validated. Manual `terraform apply tfplan` is required." Use `tofu apply` when the run used OpenTofu. Name the exact plan command you ran, so the reviewer can re-run it.
 
 ---
 

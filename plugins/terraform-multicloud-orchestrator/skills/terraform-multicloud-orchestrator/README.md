@@ -47,7 +47,7 @@ terraform plan -input=false -out=tfplan
 terraform show -json tfplan | jq -r '.resource_changes[]? | select(.change.actions | index("delete")) | "\(.address)\t\(.change.actions | join("+"))"'
 ```
 
-`scripts/validate.sh` runs the same two steps for humans and CI. Pass `--static` or `--plan` to run just one. The plan step also writes `plan_output.json`; like `tfplan`, it holds plan values in cleartext, so keep both out of version control.
+`scripts/validate.sh` runs the same two steps for humans and CI. Pass `--static` or `--plan` to run just one, `--fail-on-delete` to exit with status 3 when anything is deleted or replaced, and `--keep-json` to keep `plan_output.json` (it is otherwise removed on exit). `tfplan` holds plan values in cleartext, so keep it out of version control.
 
 ## Compatibility
 
