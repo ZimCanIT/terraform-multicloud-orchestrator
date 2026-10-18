@@ -172,7 +172,7 @@ Never rely on a remembered provider major: resolve the current one at research t
 - **One root per cloud.** Do not build a leaky abstraction module spanning clouds — the resource schemas diverge too far. Use provider aliasing for multi-region/multi-account *within* a cloud.
 - **Separate environments from reusable modules.** Use `examples/` as integration fixtures.
 - **Naming and tagging are NOT portable.** AWS uses `tags` + provider `default_tags`; Azure uses `tags`; GCP splits `labels` (billing/filtering) from network/resource-manager `tags`; OCI splits `freeform_tags` from namespaced `defined_tags`. Never assume one cloud's tag semantics on another — read the tagging section of `references/<cloud>.md`.
-- **Secure defaults.** Private endpoints, encryption, least-privilege identity. Source secrets from the cloud's secret manager — never from defaults, state or logs. Prefer the cloud's verified/official module ecosystem (namespaces in `references/<cloud>.md`).
+- **Secure defaults.** Private endpoints, encryption, least-privilege identity. Source secrets from the cloud's secret manager, and prefer ephemeral values or write-only arguments where the Terraform version and provider support them (references/state-and-secrets.md); never put secrets in defaults, state or logs. Prefer the cloud's verified/official module ecosystem (namespaces in `references/<cloud>.md`).
 
 ---
 

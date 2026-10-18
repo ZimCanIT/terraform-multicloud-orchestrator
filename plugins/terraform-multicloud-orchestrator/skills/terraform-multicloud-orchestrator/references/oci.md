@@ -1,27 +1,41 @@
 # OCI — Terraform reference (Oracle Cloud Infrastructure)
 
-Provider: `oracle/oci`. No upstream multi-cloud skill covers OCI — rely on Oracle docs and the OCI Landing Zones org. Read alongside the cloud-agnostic mechanism files.
+Structure reviewed 2026-10-18. Provider facts here are not verified against provider docs unless marked.
+
+Provider: `oracle/oci`. Read alongside the cloud-agnostic mechanism files.
 
 ## Provider & pinning
-- Resolve the current major at research time (`oracle/oci`, published by `tf-oci-pub`); a v9 major has shipped after the v8 notes below.
+- Resolve the current major at research time (`oracle/oci`, published by `tf-oci-pub`).
 - Use `required_providers` block with `source = "oracle/oci"` and `version = "~> <major>.0"` to allow minor and patch updates while locking the major version.
 - Commit `.terraform.lock.hcl` (dependency lock file) to version control for consistency across all runs.
 - For root modules, specify a maximum version constraint (e.g. `>= <major>.0, < <next-major>.0`) to prevent accidental upgrades to incompatible major versions.
 
 ## ForceNew traps (identity churn)
-- `oci_core_instance` (compute) — forces replacement when changed: `availability_domain`, `cluster_placement_group_id`, `compute_cluster_id`, `compute_host_group_id`, `hostname_label`, `image` (deprecated), `ipxe_script`, `subnet_id` (deprecated).
+- Unverified (2026-10-18): `oci_core_instance` (compute) — forces replacement when changed: `availability_domain`, `cluster_placement_group_id`, `compute_cluster_id`, `compute_host_group_id`, `hostname_label`, `image` (deprecated), `ipxe_script`, `subnet_id` (deprecated).
 - `oci_database_db_system` — forces replacement on non-updatable properties. Add non-updatable attributes (e.g. `admin_password`) to `lifecycle.ignore_changes` to prevent false diffs on subsequent applies. `hostname` may also need ignoring.
 - General rule: any attribute not marked (Updatable) in the resource documentation forces replacement. Always run `terraform plan` before apply.
 
-## Expensive / slow-to-recreate — STOP and confirm
-Autonomous Database, Exadata / ExaCS, DRG (Dynamic Routing Gateway), DB Systems, OKE clusters, File Storage Service (FSS), and `oci_core_instance` with dependent workloads. Recreating any of these is slow and breaks attached workloads.
+## Expensive-to-recreate table
+Rows are the input to the stop-and-confirm gate; match on the resource type printed by the plan.
 
-- Mitigation: use `lifecycle.create_before_destroy` to spin up replacement before tearing down dependents, or `lifecycle.prevent_destroy` to block accidental deletion.
+| Resource type | Why costly | ForceNew triggers | Protection flag | Disruptive in-place changes |
+|---|---|---|---|---|
+| `oci_database_autonomous_database` | Unverified (2026-10-18): Autonomous Database; resource type taken from the service name. Slow to recreate and breaks attached workloads | Unverified (2026-10-18) | `lifecycle.prevent_destroy` (mitigation below) | Not recorded |
+| `oci_database_cloud_exadata_infrastructure` | Unverified (2026-10-18): Exadata / ExaCS; resource type taken from the service name. Slow to recreate and breaks attached workloads | Unverified (2026-10-18) | `lifecycle.prevent_destroy` (mitigation below) | Not recorded |
+| `oci_core_drg` | Unverified (2026-10-18): Dynamic Routing Gateway; resource type taken from the service name. Slow to recreate and breaks attached workloads | Unverified (2026-10-18) | `lifecycle.prevent_destroy` (mitigation below) | Not recorded |
+| `oci_database_db_system` | Slow to recreate and breaks attached workloads | Non-updatable properties, for example `admin_password` (see ForceNew traps) | `lifecycle.prevent_destroy` (mitigation below) | Not recorded |
+| `oci_containerengine_cluster` | Unverified (2026-10-18): OKE cluster; resource type taken from the service name. Slow to recreate and breaks attached workloads | Unverified (2026-10-18) | `lifecycle.prevent_destroy` (mitigation below) | Not recorded |
+| `oci_file_storage_file_system` | Unverified (2026-10-18): File Storage Service; resource type taken from the service name. Slow to recreate and breaks attached workloads | Unverified (2026-10-18) | `lifecycle.prevent_destroy` (mitigation below) | Not recorded |
+| `oci_core_instance` | Recreating it breaks dependent workloads | `availability_domain`, `cluster_placement_group_id`, `compute_cluster_id`, `compute_host_group_id`, `hostname_label`, `ipxe_script`; Unverified (2026-10-18): `image` and `subnet_id` are marked deprecated | `lifecycle.prevent_destroy` (mitigation below) | Not recorded |
+| `oci_kms_key` | Unverified (2026-10-18): data encrypted with the key cannot be read without it | Unverified (2026-10-18) | Unverified (2026-10-18) | Not recorded |
+| `oci_objectstorage_bucket` | Unverified (2026-10-18): holds object data; recreating the bucket does not bring its objects back | Unverified (2026-10-18) | Unverified (2026-10-18) | Not recorded |
+
+- Mitigation: use `lifecycle.prevent_destroy` to block accidental deletion. create_before_destroy is not a downtime fix for database systems; plan a maintenance window (unverified per resource).
 - Always review `terraform plan` output before apply to identify affected resources.
 
 ## Provider major-upgrade notes (state migration)
-- v9: v9.0.0 has shipped; read its release notes (`github.com/oracle/terraform-provider-oci/releases`) before upgrading.
-- v8.0.0 **Breaking change**: `oci_globally_distributed_database` resource removed — any configurations using this resource must be migrated or removed before upgrading from v7.x.
+- Unverified (2026-10-18): v9: read the release notes (`github.com/oracle/terraform-provider-oci/releases`) before upgrading.
+- Unverified (2026-10-18): v8.0.0 **Breaking change**: `oci_globally_distributed_database` resource removed — any configurations using this resource must be migrated or removed before upgrading from v7.x.
 - Migration path: remove GDD resource references from state/configuration and validate all non-updatable resource properties post-upgrade.
 
 ## Tagging
@@ -31,7 +45,7 @@ Autonomous Database, Exadata / ExaCS, DRG (Dynamic Routing Gateway), DB Systems,
 
 ## Secure defaults
 - Private subnets: set `prohibit_public_ip_on_vnic = true` and `prohibit_internet_ingress = true`.
-- On `oci_core_vcn` use `cidr_blocks` (list); the singular `cidr_block` is deprecated in v8.
+- Unverified (2026-10-18): On `oci_core_vcn` use `cidr_blocks` (list); the singular `cidr_block` is deprecated in v8.
 
 ## Policy-as-code & sovereignty (compliance gates)
 - **Compartments**: Logical containers for resources; segregate access by function, team, or workload. IAM policies enforce role-based access control (RBAC) via policy statements using `oci_identity_policy` resource.
@@ -43,7 +57,7 @@ Autonomous Database, Exadata / ExaCS, DRG (Dynamic Routing Gateway), DB Systems,
 - **Official modules**: `oracle-terraform-modules/<name>/oci` namespace (e.g. `oracle-terraform-modules/oke/oci`, `oracle-terraform-modules/base/oci`, `oracle-terraform-modules/compute-instance/oci`).
   - IAM, base VCN, and compute modules recommended for production use.
 - **Landing Zones**: `oci-landing-zones` GitHub org provides governance modules (Tags, Budgets, CIS benchmark alignment).
-  - Main: `terraform-oci-core-landingzone` (successor to the retired `oci-cis-landingzone-quickstart`).
+  - Unverified (2026-10-18): Main: `terraform-oci-core-landingzone` (successor to the retired `oci-cis-landingzone-quickstart`).
 
 ## Doc sources
 - Main OCI Terraform landing page: `https://docs.oracle.com/en-us/iaas/Content/dev/terraform/`

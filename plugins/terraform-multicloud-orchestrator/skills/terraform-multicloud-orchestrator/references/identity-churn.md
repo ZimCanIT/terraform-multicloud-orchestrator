@@ -20,3 +20,8 @@ Churn = Terraform plans a destroy+create (or a wholesale address change) when yo
 - Avoid: passing `""` instead of `null` to an optional argument — this can force replacement on some providers (notably AWS).
 - Avoid: reordering `count` elements, as it renumbers them; reordering `for_each` keys is safe.
 - Prefer: human-stable keys (names, not indexes).
+
+## IAM authoritative versus additive
+- Unverified (2026-10-18): check the provider docs for each resource before use. `google_project_iam_policy` is authoritative (replaces the whole policy).
+- `google_project_iam_binding` is authoritative per role.
+- `google_project_iam_member` is additive.
