@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Codex plugin manifests."""
+"""Validate Codex plugin manifests, the Codex marketplace and the shared manifest fields."""
 
 from __future__ import annotations
 
@@ -22,6 +22,10 @@ REQUIRED_INTERFACE_FIELDS = {
     "capabilities",
 }
 UNSUPPORTED_FIELDS = {"hooks"}
+CODEX_MARKETPLACE = ".agents/plugins/marketplace.json"
+# Fields that must agree between a plugin's Claude and Codex manifests.
+# `description` is left out on purpose: the two manifests carry different copy.
+SHARED_FIELDS = ("name", "version")
 
 
 def main() -> int:
@@ -34,6 +38,8 @@ def main() -> int:
     errors: list[str] = []
     for manifest_path in manifests:
         errors.extend(validate_manifest(manifest_path))
+    errors.extend(validate_marketplace(repo_root, manifests))
+    errors.extend(validate_shared_fields(repo_root))
 
     if errors:
         print("Codex plugin validation failed:")
@@ -149,6 +155,81 @@ def validate_interface(value: Any, rel_manifest: str, errors: list[str]) -> None
         isinstance(item, str) and item.strip() for item in default_prompt
     ):
         errors.append(f"{rel_manifest}: `interface.defaultPrompt` must be string array")
+
+
+def validate_marketplace(repo_root: Path, manifests: list[Path]) -> list[str]:
+    """Each Codex plugin must be listed by name in the Codex marketplace."""
+    marketplace_path = repo_root / CODEX_MARKETPLACE
+    rel_marketplace = marketplace_path.as_posix()
+    if not marketplace_path.is_file():
+        return [f"{rel_marketplace}: missing Codex marketplace file"]
+    try:
+        payload = json.loads(marketplace_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return [f"{rel_marketplace}: invalid JSON: {exc}"]
+    if not isinstance(payload, dict):
+        return [f"{rel_marketplace}: marketplace must be a JSON object"]
+    plugins = payload.get("plugins")
+    if not isinstance(plugins, list):
+        return [f"{rel_marketplace}: `plugins` must be an array"]
+
+    listed = {
+        entry["name"]
+        for entry in plugins
+        if isinstance(entry, dict) and isinstance(entry.get("name"), str)
+    }
+    errors: list[str] = []
+    for manifest_path in manifests:
+        manifest, _ = read_object(manifest_path)
+        name = manifest.get("name") if manifest is not None else None
+        if isinstance(name, str) and name not in listed:
+            errors.append(f"{rel_marketplace}: no `plugins` entry names `{name}`")
+    return errors
+
+
+def validate_shared_fields(repo_root: Path) -> list[str]:
+    """A plugin's Claude and Codex manifests must agree on SHARED_FIELDS."""
+    plugin_dirs = {
+        path.parent.parent
+        for pattern in (".claude-plugin", ".codex-plugin")
+        for path in repo_root.glob(f"plugins/*/{pattern}/plugin.json")
+    }
+
+    errors: list[str] = []
+    for plugin_dir in sorted(plugin_dirs):
+        claude_path = plugin_dir / ".claude-plugin" / "plugin.json"
+        codex_path = plugin_dir / ".codex-plugin" / "plugin.json"
+        claude, problem = read_object(claude_path)
+        if claude is None:
+            errors.append(f"{claude_path.as_posix()}: {problem}; cannot compare with Codex")
+            continue
+        if not codex_path.is_file():
+            errors.append(f"{codex_path.as_posix()}: missing; cannot compare with Claude")
+            continue
+        codex, _ = read_object(codex_path)
+        if codex is None:
+            continue  # validate_manifest reports an unreadable Codex manifest
+
+        for field in SHARED_FIELDS:
+            if claude.get(field) != codex.get(field):
+                errors.append(
+                    f"{codex_path.as_posix()}: `{field}` is {codex.get(field)!r}, "
+                    f"but {claude_path.as_posix()} has {claude.get(field)!r}"
+                )
+    return errors
+
+
+def read_object(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+    """Return the JSON object in `path`, or None with the reason it cannot be used."""
+    if not path.is_file():
+        return None, "missing"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return None, f"invalid JSON: {exc}"
+    if not isinstance(payload, dict):
+        return None, "manifest must be a JSON object"
+    return payload, None
 
 
 def reject_todo_markers(

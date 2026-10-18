@@ -50,11 +50,12 @@ repos:
         language: python
         entry: python scripts/validate_codex_plugin.py
         pass_filenames: false
-        files: "(^|/)\\.codex-plugin/plugin\\.json$|^scripts/validate_codex_plugin\\.py$"
+        files: "(^|/)\\.codex-plugin/plugin\\.json$|^\\.agents/plugins/marketplace\\.json$|^scripts/validate_codex_plugin\\.py$"
 
       - id: validate-skill-frontmatter
         name: validate Agent Skill frontmatter
         language: python
+        additional_dependencies: [pyyaml]
         entry: python scripts/validate_skill_frontmatter.py
         pass_filenames: false
         files: "(^|/)SKILL\\.md$|^scripts/validate_skill_frontmatter\\.py$"
@@ -64,4 +65,12 @@ repos:
         language: python
         entry: python scripts/validate_versions.py
         pass_filenames: false
-        files: "(^|/)(plugin|marketplace)\\.json$|^\\.release-please-manifest\\.json$|(^|/)(SKILL|README)\\.md$|^scripts/validate_versions\\.py$"
+        files: "(^|/)(plugin|marketplace)\\.json$|^\\.release-please-manifest\\.json$|^release-please-config\\.json$|(^|/)(SKILL|README)\\.md$|^scripts/validate_versions\\.py$"
+
+      - id: pytest
+        name: pytest
+        language: python
+        additional_dependencies: [pytest, pyyaml]
+        entry: python -m pytest tests -q
+        pass_filenames: false
+        always_run: true
