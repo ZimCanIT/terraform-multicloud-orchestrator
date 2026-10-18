@@ -1,0 +1,7 @@
+Third-party attribution for terraform-multicloud-orchestrator
+
+Attribution: the failure-mode-first methodology is inspired by TerraShark
+(github.com/LukasNiessen/terrashark, MIT). The diagnose-first routing and
+response-contract structure are inspired by Anton Babenko's terraform-skill
+(github.com/antonbabenko/terraform-skill, Apache-2.0). All reference content
+in this repository is original.
