@@ -4,10 +4,13 @@
 <Tree of files created or updated.>
 
 ## Plan Summary
+- Plan kind: <static only | state-backed>
+- Command: <exact plan command run, or "none">
 - Add: <count>
 - Change: <count>
 - Destroy: <count>
-- Replacements: <none|resource addresses and stop-and-confirm outcome>
+- Replacements: <none | "Replacement check NOT performed" | address, type, action and reason for each>
+- Gate: <clear | stopped, awaiting confirmation>
 
 ## Output Contract
 - Assumptions and version floor: <provider versions, naming convention, inputs relied on>
@@ -16,4 +19,4 @@
 - Rollback / recovery: <state and code recovery path>
 
 ## Handoff
-Code is staged and validated. Manual `terraform apply tfplan` is required.
+<One of: "Code is staged and validated. Manual `terraform apply tfplan` is required." | "Stopped at the gate; awaiting confirmation." | "Replacement check NOT performed; run the state-backed plan before apply." Use `tofu apply` for OpenTofu.>
