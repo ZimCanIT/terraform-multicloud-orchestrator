@@ -59,16 +59,17 @@ Otherwise, copy that folder into the agent's skills directory. For Claude Code, 
 
 - **Shared spine, per-cloud references.** The workflow, guardrails, pinning rules and state handling are cloud-neutral. Cloud facts live in `references/aws.md`, `azure.md`, `gcp.md` and `oci.md`: ForceNew traps, resources that are expensive to recreate, provider upgrade notes, tagging and policy tooling. Each file loads only when needed.
 - **Ask once.** It asks for target clouds and a pinning strategy (`exact`, `pessimistic-minor`, `pessimistic-patch` or `latest-stable-and-pin`), then records both in a `SESSION CONFIG` block it follows for the rest of the session.
-- **Plan-only.** It runs `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get` and `providers`, plus `jq` to read plan JSON. A planned replacement of an expensive resource triggers a stop-and-confirm gate.
-- **Automatic.** It triggers when a request matches its description. There is no slash command.
+- **Plan-only.** It runs only the exact permitted forms: `init`, `validate`, `fmt -check -recursive`, `plan -out=tfplan`, `show -json tfplan`, `providers` and `state list`. Reading plan JSON with `jq` needs your approval. A planned replacement of an expensive resource triggers a stop-and-confirm gate.
+- **Automatic.** It triggers when a request matches its description.
 - **A fixed response shape.** Each answer gives its assumptions and version floor, the risk it addresses, remediation and tradeoffs, a validation plan, and rollback notes.
 
 ## Safety
 
-`apply` and `destroy` are restricted.
+`apply` and `destroy` are restricted, and so is every other `terraform` or `tofu` subcommand that is not on the permitted list.
 
-- The skill never runs `terraform apply` or `terraform destroy`, and never uses `-auto-approve`.
-- It also refuses state-changing commands (`import`, `state mv`, `state rm`, `state push`, `force-unlock`) and cloud CLI or API calls that create, update or delete resources.
+- The permitted commands are exact forms: `init`, `validate`, `fmt -check -recursive`, `plan -out=tfplan`, `show -json tfplan`, `providers`, and `state list`. Reading plan JSON with `jq` needs your approval.
+- The skill never runs `terraform apply` or `terraform destroy`, never uses `-auto-approve`, and refuses named extras such as `test`, `taint`, `refresh` and `state rm`.
+- Cloud CLI or API calls that create, update, delete or set resources are forbidden.
 - If asked to deploy, it replies that apply and destroy are restricted, then tells you to review the plan and run apply yourself.
 - An operator can lift any of these restrictions by editing the skill's guardrails. Requests in a session or in a standards document don't override them.
 
@@ -99,7 +100,36 @@ The skill's `allowed-tools` grants commands rather than blocking them. To block 
       "Bash(tofu state push:*)",
       "Bash(tofu force-unlock:*)",
       "Bash(tofu taint:*)",
-      "Bash(tofu untaint:*)"
+      "Bash(tofu untaint:*)",
+      "Bash(terraform test:*)",
+      "Bash(terraform refresh:*)",
+      "Bash(terraform workspace:*)",
+      "Bash(terraform login:*)",
+      "Bash(terraform state replace-provider:*)",
+      "Bash(terraform providers mirror:*)",
+      "Bash(terraform init -migrate-state:*)",
+      "Bash(terraform init -reconfigure:*)",
+      "Bash(terraform init -from-module:*)",
+      "Bash(terraform plan -generate-config-out:*)",
+      "Bash(terraform plan -lock=false:*)",
+      "Bash(terraform plan -destroy:*)",
+      "Bash(terraform plan -target:*)",
+      "Bash(terraform plan -replace:*)",
+      "Bash(tofu test:*)",
+      "Bash(tofu refresh:*)",
+      "Bash(tofu workspace:*)",
+      "Bash(tofu login:*)",
+      "Bash(tofu state replace-provider:*)",
+      "Bash(tofu providers mirror:*)",
+      "Bash(tofu init -migrate-state:*)",
+      "Bash(tofu init -reconfigure:*)",
+      "Bash(tofu init -from-module:*)",
+      "Bash(tofu plan -generate-config-out:*)",
+      "Bash(tofu plan -lock=false:*)",
+      "Bash(tofu plan -destroy:*)",
+      "Bash(tofu plan -target:*)",
+      "Bash(tofu plan -replace:*)",
+      "Bash(terragrunt run-all:*)"
     ]
   }
 }
