@@ -13,8 +13,8 @@ Whenever Terraform, HCL, `.tf` files, IaC modules, provider upgrades, or state m
 
 ## Safety (plan-only)
 
-- **Permitted:** `init`, `validate`, `plan`, `show`, `state list`, `fmt`, `get`, `providers` (terraform and tofu), plus `jq` to read plan JSON.
-- **Forbidden:** `apply`, `destroy`, any auto-approve flag, and state-mutating CLI operations (`import`, `state mv`/`rm`/`push`, `force-unlock`) — the skill *proposes* these; you run them manually.
+- **Permitted (exact forms, terraform and tofu):** `init -backend=false -input=false`, `init -input=false`, `validate`, `fmt -check -recursive`, `plan -input=false -out=tfplan`, `show -json tfplan`, `providers`, `providers schema -json`, `state list`. Reading plan JSON with `jq` needs your approval.
+- **Forbidden:** any other `terraform` or `tofu` subcommand, including `apply`, `destroy`, any auto-approve flag, `test`, `taint`, `refresh`, and state-mutating operations (`import`, `state mv`/`rm`/`push`, `force-unlock`). The skill *proposes* these; you run them manually.
 - In Claude Code the `allowed-tools` frontmatter is scoped to the permitted commands. `allowed-tools` grants, it does not block. `deny` rules in your settings are a guard rail that matches only the command text; for a stop that holds, use credentials that cannot write, a hook or a sandbox (see the repository README).
 
 ## Layout
@@ -39,7 +39,7 @@ terraform validate
 terraform fmt -check -recursive
 ```
 
-The state-backed plan reads real state, so it is the only step that can see a replacement. It lists every resource the plan deletes or replaces:
+The state-backed plan reads real state, so it is the only step that can see a replacement. It lists every resource the plan deletes or replaces. The `jq` step is not pre-approved, so approve it once:
 
 ```bash
 terraform init -input=false
