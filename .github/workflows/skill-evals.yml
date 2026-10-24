@@ -1,0 +1,504 @@
+name: skill-evals
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which eval suite to run
+        type: choice
+        options:
+          - gate
+          - authoring
+          - both
+        default: gate
+      channel:
+        description: Claude Code release channel to install
+        type: choice
+        options:
+          - stable
+          - latest
+        default: stable
+      model:
+        description: Full agent model ID that replaces each case's pinned model (empty keeps them)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+  TERRAFORM_VERSION: "1.16.6"
+  PYYAML_VERSION: "6.0.3"
+  PYTEST_VERSION: "9.1.1"
+  ZIZMOR_VERSION: "1.31.1"
+  ACTIONLINT_PY_VERSION: "1.7.12.25"
+  PLUGIN_DIR: plugins/terraform-multicloud-orchestrator
+  EVAL_JUDGE_MODEL: claude-haiku-5-5
+  # Governance classification recorded on every run. Prompts, files and replies go to the
+  # model API, so the offline record ends ERROR for any value but Public or Internal. The
+  # live job needs that record to succeed, so no prompt is sent on Confidential or Restricted data.
+  EVAL_DATA_CLASSIFICATION: Public
+  EVAL_CRITICALITY: Low
+  EVAL_SERVICE_LEVEL: Standard
+  DISABLE_UPDATES: "1"
+
+jobs:
+  offline:
+    name: skill-evals-offline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      run_live: ${{ steps.plan_live.outputs.run_live }}
+      live_tier: ${{ steps.plan_live.outputs.live_tier }}
+      matrix: ${{ steps.plan_live.outputs.matrix }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Two commits, so a pull request's merge commit can be diffed against its base.
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Install Python tools
+        run: >-
+          python -m pip install
+          "pyyaml==${PYYAML_VERSION}"
+          "pytest==${PYTEST_VERSION}"
+          "zizmor==${ZIZMOR_VERSION}"
+          "actionlint-py==${ACTIONLINT_PY_VERSION}"
+
+      # The release under test is whatever the npm dist-tag names on the day, so no lockfile can
+      # pin it. The step asserts the installed version equals the resolved one, and it holds no secret.
+      - name: Install the stable Claude Code release
+        id: harness_install
+        shell: bash
+        env:
+          CHANNEL: stable
+        run: | # zizmor: ignore[adhoc-packages]
+          set -euo pipefail
+          dist_tags="$(npm view @anthropic-ai/claude-code dist-tags --json)"
+          version="$(jq -r --arg channel "${CHANNEL}" '.[$channel] // empty' <<<"${dist_tags}")"
+          if [ -z "${version}" ]; then
+            echo "::error::npm has no '${CHANNEL}' dist-tag for @anthropic-ai/claude-code" >&2
+            exit 1
+          fi
+          # Install scripts must run: a CLI installed with --ignore-scripts refuses to start.
+          npm install --global "@anthropic-ai/claude-code@${version}"
+          installed="$(claude --version | awk '{ print $1 }')"
+          if [ "${installed}" != "${version}" ]; then
+            echo "::error::Installed Claude Code ${installed}, expected ${version}" >&2
+            exit 1
+          fi
+          echo "Claude Code ${version} (${CHANNEL}); dist-tags: $(jq -c . <<<"${dist_tags}")"
+
+      - name: Validate the eval cases
+        id: case_lint
+        run: python scripts/validate_evals.py
+
+      - name: Test the eval tooling
+        id: unit_tests
+        run: >-
+          python -m pytest
+          tests/test_validate_evals.py tests/test_classify_eval_run.py
+          tests/test_grade_eval_workspaces.py tests/test_eval_graders.py
+          tests/test_skill_evals_workflow.py -q
+
+      - name: Lint this workflow
+        id: workflow_lint
+        run: |
+          actionlint .github/workflows/skill-evals.yml
+          zizmor --offline .github/workflows/skill-evals.yml
+
+      - name: Validate the plugin
+        id: plugin_validate
+        run: claude plugin validate "${PLUGIN_DIR}"
+
+      - name: Check that the eval suites load
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="${RUNNER_TEMP}/preflight"
+          mkdir -p "${out}"
+          # A ceiling of $0 stops the run before the first model call, but the cases are still loaded
+          # and each grader is checked against the tools the run grants. Exit 2 with the
+          # cost_ceiling reason therefore means the suite loaded, and it needs no API key.
+          for suite in gate authoring; do
+            grants=()
+            if [ "${suite}" = authoring ]; then
+              grants=(--allow-tools Write)
+            fi
+            set +e
+            claude plugin eval "${PLUGIN_DIR}" --tag "${suite}" --ablation none "${grants[@]}" \
+              --max-cost-usd 0 --trust-plugin --no-publish --output-dir "${out}/${suite}" \
+              > "${out}/${suite}.stdout" 2> "${out}/${suite}.stderr"
+            rc=$?
+            set -e
+            if [ "${rc}" -ne 2 ] || [ "$(jq -r '.partialReason // empty' "${out}/${suite}/aggregate-result.json")" != cost_ceiling ]; then
+              echo "::error::The ${suite} suite did not load (exit ${rc}, expected 2 with a cost_ceiling stop)" >&2
+              cat "${out}/${suite}.stdout" "${out}/${suite}.stderr"
+              exit 1
+            fi
+            if grep -E '^(✗|⚠ case ")' "${out}/${suite}.stderr"; then
+              echo "::error::The ${suite} suite loaded with the problems above" >&2
+              exit 1
+            fi
+          done
+
+      - name: Plan the live tier
+        id: plan_live
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          ACTOR: ${{ github.actor }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          DISPATCH_SUITE: ${{ inputs.suite }}
+          DISPATCH_CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+          changed="${RUNNER_TEMP}/changed-files.txt"
+          : > "${changed}"
+          if [ "${EVENT_NAME}" = pull_request ]; then
+            # Without rename detection a file moved out of a relevant path is listed under both names.
+            git diff --name-only --no-renames HEAD^1 HEAD > "${changed}"
+          fi
+          python scripts/classify_eval_run.py plan \
+            --event "${EVENT_NAME}" \
+            --repository "${REPOSITORY}" \
+            --head-repository "${HEAD_REPOSITORY}" \
+            --actor "${ACTOR}" \
+            --pr-author "${PR_AUTHOR}" \
+            --changed-files "${changed}" \
+            --dispatch-suite "${DISPATCH_SUITE:-gate}" \
+            --dispatch-channel "${DISPATCH_CHANNEL:-stable}" \
+            | tee -a "${GITHUB_OUTPUT}"
+
+      - name: Classify the offline checks
+        if: always()
+        shell: bash
+        env:
+          HARNESS_INSTALL: ${{ steps.harness_install.outcome }}
+          CASE_LINT: ${{ steps.case_lint.outcome }}
+          UNIT_TESTS: ${{ steps.unit_tests.outcome }}
+          WORKFLOW_LINT: ${{ steps.workflow_lint.outcome }}
+          PLUGIN_VALIDATE: ${{ steps.plugin_validate.outcome }}
+          PREFLIGHT: ${{ steps.preflight.outcome }}
+          PLAN_LIVE: ${{ steps.plan_live.outcome }}
+          LIVE_TIER: ${{ steps.plan_live.outputs.live_tier }}
+          EVAL_PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          python scripts/classify_eval_run.py offline \
+            --check "harness_install=${HARNESS_INSTALL:-skipped}" \
+            --check "case_lint=${CASE_LINT:-skipped}" \
+            --check "unit_tests=${UNIT_TESTS:-skipped}" \
+            --check "workflow_lint=${WORKFLOW_LINT:-skipped}" \
+            --check "plugin_validate=${PLUGIN_VALIDATE:-skipped}" \
+            --check "preflight=${PREFLIGHT:-skipped}" \
+            --check "plan_live=${PLAN_LIVE:-skipped}" \
+            --live-tier "${LIVE_TIER:-SKIPPED:not_planned}" \
+            --out "${RUNNER_TEMP}/classification/classification.json" \
+            --markdown "${RUNNER_TEMP}/classification/classification.md"
+
+      - name: Upload the offline classification
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: skill-eval-offline
+          path: ${{ runner.temp }}/classification/
+          retention-days: 14
+          if-no-files-found: error
+
+  live:
+    name: skill-evals-live-${{ matrix.suite }}-${{ matrix.channel }}
+    needs: offline
+    if: needs.offline.result == 'success' && needs.offline.outputs.run_live == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # The latest-channel leg is a canary: it reports drift and never fails the run.
+    continue-on-error: ${{ matrix.advisory }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.offline.outputs.matrix) }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Install PyYAML
+        run: python -m pip install "pyyaml==${PYYAML_VERSION}"
+
+      # Resolved from the npm dist-tag on the day, as in the offline job; this step holds no secret.
+      - name: Install the Claude Code release
+        id: harness
+        shell: bash
+        env:
+          CHANNEL: ${{ matrix.channel }}
+        run: | # zizmor: ignore[adhoc-packages]
+          set -euo pipefail
+          dist_tags="$(npm view @anthropic-ai/claude-code dist-tags --json)"
+          version="$(jq -r --arg channel "${CHANNEL}" '.[$channel] // empty' <<<"${dist_tags}")"
+          if [ -z "${version}" ]; then
+            echo "::error::npm has no '${CHANNEL}' dist-tag for @anthropic-ai/claude-code" >&2
+            exit 1
+          fi
+          # Install scripts must run: a CLI installed with --ignore-scripts refuses to start.
+          npm install --global "@anthropic-ai/claude-code@${version}"
+          installed="$(claude --version | awk '{ print $1 }')"
+          if [ "${installed}" != "${version}" ]; then
+            echo "::error::Installed Claude Code ${installed}, expected ${version}" >&2
+            exit 1
+          fi
+          {
+            echo "version=${version}"
+            echo "dist_tags=$(jq -c . <<<"${dist_tags}")"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Decide whether the evals can start
+        id: gate
+        shell: bash
+        env:
+          # The comparison is evaluated by GitHub; only true or false reaches the step.
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "${HAS_KEY}" = true ]; then
+            {
+              echo "status=ran"
+              echo "credentials=true"
+            } >> "${GITHUB_OUTPUT}"
+          elif [ "${EVENT_NAME}" = pull_request ]; then
+            # A pull request on a repository without the secret is neutral, not red.
+            {
+              echo "status=skipped"
+              echo "reason=no_credential"
+              echo "credentials=false"
+            } >> "${GITHUB_OUTPUT}"
+            echo "::notice::ANTHROPIC_API_KEY is not set, so the live evals were skipped."
+          else
+            {
+              echo "status=error"
+              echo "reason=no_credential"
+              echo "credentials=false"
+            } >> "${GITHUB_OUTPUT}"
+            echo "::error::ANTHROPIC_API_KEY is not set, so this ${EVENT_NAME} run could not run the evals." >&2
+          fi
+
+      - name: Run the evals
+        id: eval
+        if: steps.gate.outputs.status == 'ran'
+        shell: bash
+        env:
+          # The key reaches this step only. The grading and classification steps never see it.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUITE: ${{ matrix.suite }}
+          MODEL: ${{ inputs.model }}
+          CEILING: ${{ matrix.suite == 'authoring' && '5' || '4' }}
+        run: |
+          set -uo pipefail
+          out="${RUNNER_TEMP}/eval"
+          mkdir -p "${out}"
+          args=(
+            --tag "${SUITE}" --ablation none --trust-plugin --no-publish
+            --concurrency 3 --judge-model "${EVAL_JUDGE_MODEL}" --max-cost-usd "${CEILING}"
+            --output-dir "${out}/results"
+          )
+          if [ "${SUITE}" = authoring ]; then
+            # Write is granted to the authoring cases only. --keep-temp leaves the workspaces for terraform validate.
+            args+=(--allow-tools Write --keep-temp)
+          fi
+          if [ -n "${MODEL}" ]; then
+            if ! [[ "${MODEL}" =~ ^claude-[a-z0-9-]+$ ]]; then
+              echo "::error::The model input must be a full model ID, for example claude-<family>-<major>-<minor>" >&2
+              exit 1
+            fi
+            args+=(--model "${MODEL}")
+          fi
+          set +e
+          claude plugin eval "${PLUGIN_DIR}" "${args[@]}" > "${out}/eval.stdout" 2> "${out}/eval.stderr"
+          echo "exit_code=$?" >> "${GITHUB_OUTPUT}"
+
+      - name: Check the written Terraform
+        id: static
+        if: always() && matrix.suite == 'authoring' && steps.gate.outputs.status == 'ran'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TF_PLUGIN_CACHE_DIR="${RUNNER_TEMP}/terraform-plugin-cache"
+          mkdir -p "${TF_PLUGIN_CACHE_DIR}"
+          python scripts/grade_eval_workspaces.py \
+            --aggregate "${RUNNER_TEMP}/eval/results/aggregate-result.json" \
+            --out "${RUNNER_TEMP}/eval/static-grades.json"
+
+      - name: Classify the run
+        if: always()
+        shell: bash
+        env:
+          HARNESS_OUTCOME: ${{ steps.harness.outcome }}
+          HARNESS_VERSION: ${{ steps.harness.outputs.version }}
+          DIST_TAGS: ${{ steps.harness.outputs.dist_tags }}
+          GATE_STATUS: ${{ steps.gate.outputs.status }}
+          GATE_REASON: ${{ steps.gate.outputs.reason }}
+          CREDENTIALS: ${{ steps.gate.outputs.credentials }}
+          EXIT_CODE: ${{ steps.eval.outputs.exit_code }}
+          SUITE: ${{ matrix.suite }}
+          CHANNEL: ${{ matrix.channel }}
+          MODEL: ${{ inputs.model }}
+          CEILING: ${{ matrix.suite == 'authoring' && '5' || '4' }}
+          EVAL_PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          eval_dir="${RUNNER_TEMP}/eval"
+          record="${RUNNER_TEMP}/classification"
+          mkdir -p "${record}"
+          status="${GATE_STATUS:-error}"
+          reason="${GATE_REASON:-harness_install}"
+          if [ "${HARNESS_OUTCOME}" != success ]; then
+            status=error
+            reason=harness_install
+          fi
+          args=(
+            live --suite "${SUITE}" --status "${status}" --trigger-trust trusted
+            --credentials-present "${CREDENTIALS:-false}" --harness-channel "${CHANNEL}"
+            --harness-version "${HARNESS_VERSION}" --dist-tags "${DIST_TAGS:-}"
+            --max-cost-usd "${CEILING}" --out "${record}/classification.json"
+            --markdown "${record}/classification.md"
+          )
+          if [ "${status}" = ran ]; then
+            args+=(--aggregate "${eval_dir}/results/aggregate-result.json")
+            if [ -n "${EXIT_CODE:-}" ]; then
+              args+=(--eval-exit-code "${EXIT_CODE}")
+            fi
+            if [ -f "${eval_dir}/static-grades.json" ]; then
+              args+=(--static-grades "${eval_dir}/static-grades.json")
+            fi
+          else
+            args+=(--reason "${reason}")
+          fi
+          if [ -n "${MODEL}" ]; then
+            args+=(--expect-model "${MODEL}")
+          fi
+          # Every command below runs whatever the earlier ones returned, and the first failure sets the exit code.
+          rc=0
+          python scripts/classify_eval_run.py "${args[@]}" || rc=$?
+          # Upload the result without prompts or model replies, plus the runner's own messages.
+          if [ -f "${eval_dir}/results/aggregate-result.json" ]; then
+            python scripts/classify_eval_run.py redact \
+              --aggregate "${eval_dir}/results/aggregate-result.json" --out "${record}/aggregate-redacted.json" \
+              || { echo "::error::The eval result could not be redacted, so it is not in the artifact." >&2; [ "${rc}" -ne 0 ] || rc=1; }
+          fi
+          for name in static-grades.json eval.stderr; do
+            if [ -f "${eval_dir}/${name}" ]; then
+              cp "${eval_dir}/${name}" "${record}/${name}" || [ "${rc}" -ne 0 ] || rc=1
+            fi
+          done
+          exit "${rc}"
+
+      - name: Upload the classification
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: skill-eval-${{ matrix.suite }}-${{ matrix.channel }}
+          path: ${{ runner.temp }}/classification/
+          retention-days: 14
+          if-no-files-found: error
+
+  # Only the weekly run installs both channels, so it is the only one that can compare them.
+  compare:
+    name: skill-evals-compare
+    needs: [offline, live]
+    if: always() && github.event_name == 'schedule' && needs.offline.outputs.run_live == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download the gate classifications
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: skill-eval-gate-*
+          path: ${{ runner.temp }}/records
+
+      - name: Compare stable with latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          records="${RUNNER_TEMP}/records"
+          stable="${records}/skill-eval-gate-stable/classification.json"
+          latest="${records}/skill-eval-gate-latest/classification.json"
+          if [ ! -f "${stable}" ] || [ ! -f "${latest}" ]; then
+            echo "::notice::This run did not produce both a stable and a latest gate classification, so there is nothing to compare."
+            exit 0
+          fi
+          python scripts/classify_eval_run.py drift \
+            --stable "${stable}" --latest "${latest}" \
+            --out "${RUNNER_TEMP}/drift/drift.json" --markdown "${RUNNER_TEMP}/drift/drift.md"
+
+      - name: Upload the drift report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: skill-eval-drift
+          path: ${{ runner.temp }}/drift/
+          retention-days: 14
+          if-no-files-found: ignore
