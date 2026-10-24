@@ -12,7 +12,7 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-The hook suite covers whitespace, EOF, JSON/YAML syntax, large files, private keys, secret detection, Markdown linting, shell linting/formatting, Codex plugin manifest validation, Agent Skill frontmatter validation, and release version consistency.
+The hook suite covers whitespace, EOF, JSON/YAML syntax, large files, private keys, secret detection, Markdown linting, shell linting/formatting, Codex plugin manifest validation, Agent Skill frontmatter validation, skill eval case validation, and release version consistency.
 
 The shell hooks run `shellcheck` and `shfmt` from pinned pre-commit repositories, so developers need no separate install. `gitleaks` scans staged changes locally; CI scans the whole tree with `detect-secrets`.
 
@@ -82,6 +82,37 @@ Run from a Terraform root directory. `--static` runs the checks that need no sta
 bash /path/to/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/validate.sh --static
 ```
 
+## Skill evals
+
+`plugins/terraform-multicloud-orchestrator/evals/` holds the cases that `claude plugin eval` runs against the skill: a `gate` suite of 12 cases (trigger probes and plan-only guardrails) and an `authoring` suite of 4 cases (AWS, Azure, GCP and OCI) whose output also gets `terraform validate`. The [evals README](plugins/terraform-multicloud-orchestrator/evals/README.md) has the rules for a case and every classification and reason code.
+
+`.github/workflows/skill-evals.yml` runs them in two tiers. Each job ends with one classification (`PASS`, `FAIL`, `ERROR`, `INCONCLUSIVE` or `SKIPPED`) in its job summary and in a `classification.json` artifact, and every live record also classifies each case and each attempt.
+
+- `skill-evals-offline` needs no secret and runs on every pull request, every push to `main` and the weekly schedule. It installs the Claude Code release that the npm `stable` dist-tag names and asserts that this is the version installed. It then validates the cases, tests the eval tooling, lints the workflow with actionlint and zizmor, runs `claude plugin validate`, and confirms that both suites load.
+- `skill-evals-live-<suite>-<channel>` calls the model. A same-repository pull request that touches the plugin or the eval tooling runs the gate suite on `stable`. The weekly schedule runs both suites on `stable`, plus the gate suite on `latest` as a canary that reports drift and never fails the run. A manual dispatch picks the suite, the channel and, optionally, a full model ID.
+
+Run the checks that need no API key before you push. The `validate-evals` pre-commit hook runs the first command:
+
+```bash
+python scripts/validate_evals.py
+python -m pytest tests/test_validate_evals.py tests/test_classify_eval_run.py tests/test_grade_eval_workspaces.py tests/test_eval_graders.py tests/test_skill_evals_workflow.py -q
+```
+
+The evals README shows how to run a suite and classify it locally. A paid run uses your own Claude Code login and cost about $2.10 for the gate suite and $2.20 for the authoring suite when measured. Terraform must be installed for the five tests that run the real binary, and Node.js for the grader-pattern tests; without them those tests are skipped, and CI runs them. `scripts/grade_eval_workspaces.py` runs `terraform validate` on model-written code, so it refuses to start while `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is set. Unset them for that command.
+
+What the evals do not show:
+
+- They sample the skill's behaviour. A passing run bounds how often a guardrail is violated; it does not rule violations out, and preventing `apply` and `destroy` rests on the tool grants, not on these results.
+- They check that provider pins have the right shape and that `terraform validate` accepts the code. They do not check that a pinned version is the newest one, or that a plan would succeed against a real account.
+- A judged grader is one model voting three times. Read the reply before trusting a single judged failure.
+- One run covers one Claude Code release, the one the `stable` dist-tag named that day.
+
+Setup for the repository owner, not applied by this repository:
+
+- Add a dedicated `ANTHROPIC_API_KEY` repository secret with a spend limit. Without it the live tier is skipped on pull requests, and a scheduled or manual run ends `ERROR` with `no_credential`.
+- To require a human approval before each paid run, put the secret in a GitHub environment with required reviewers and name that environment in the `live` job.
+- The classification tags (`EVAL_DATA_CLASSIFICATION`, `EVAL_CRITICALITY`, `EVAL_SERVICE_LEVEL`) are set in the workflow's top-level `env`. Foundry fixes the `DataClassification` values; the `Criticality` and `ServiceLevel` values are a proposal for you to change.
+
 ## Conventional Commits
 
 Commit and PR titles use a type: feat, fix, docs, ci, chore, test or refactor. release-please reads them to choose the next version. While the version is below 1.0:
@@ -94,6 +125,6 @@ Commit and PR titles use a type: feat, fix, docs, ci, chore, test or refactor. r
 
 Protect `main` with these settings. The repository owner applies them in the GitHub settings; this repository does not change them.
 
-- Require the `pre-commit` and `agentskills-validate` status checks.
+- Require the `pre-commit`, `agentskills-validate` and `skill-evals-offline` status checks. Do not require the `skill-evals-live-*` checks: they need a secret, cost money and are skipped for fork and bot pull requests.
 - Require pull requests before merging.
 - Allow squash merges only.
