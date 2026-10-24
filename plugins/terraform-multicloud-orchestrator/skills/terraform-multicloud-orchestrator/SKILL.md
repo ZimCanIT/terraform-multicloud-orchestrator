@@ -5,7 +5,7 @@ license: MIT
 compatibility: Designed for Claude Code, Codex, and Agent Skills-compatible coding agents. Requires the Terraform or OpenTofu CLI and jq for validation, internet access for provider documentation and module/provider downloads, and cloud credentials only when plan commands need them.
 metadata:
   author: Joshua Musiyarira (ZimCanIT)
-  version: "0.1.1" # x-release-please-version
+  version: "0.2.0" # x-release-please-version
   repository: https://github.com/ZimCanIT/terraform-multicloud-orchestrator
   homepage: https://github.com/ZimCanIT/terraform-multicloud-orchestrator
 allowed-tools: Read Grep Glob WebFetch(domain:registry.terraform.io) WebFetch(domain:developer.hashicorp.com) WebFetch(domain:github.com) WebFetch(domain:learn.microsoft.com) WebFetch(domain:azure.github.io) WebFetch(domain:docs.aws.amazon.com) WebFetch(domain:cloud.google.com) WebFetch(domain:docs.cloud.google.com) WebFetch(domain:docs.oracle.com) Bash(terraform init -backend=false -input=false) Bash(terraform init -input=false) Bash(terraform validate) Bash(terraform fmt -check -recursive) Bash(terraform plan -input=false -out=tfplan) Bash(terraform show -json tfplan) Bash(terraform providers) Bash(terraform providers schema -json) Bash(terraform state list) Bash(tofu init -backend=false -input=false) Bash(tofu init -input=false) Bash(tofu validate) Bash(tofu fmt -check -recursive) Bash(tofu plan -input=false -out=tfplan) Bash(tofu show -json tfplan) Bash(tofu providers) Bash(tofu providers schema -json) Bash(tofu state list)

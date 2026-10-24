@@ -2,6 +2,30 @@
 
 All notable changes are documented here. Versions follow [Semantic Versioning](https://semver.org/); releases are generated automatically by [release-please](https://github.com/googleapis/release-please) from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.2.0](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/compare/terraform-multicloud-orchestrator-v0.1.1...terraform-multicloud-orchestrator-v0.2.0) (2026-10-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* tighten plan-only guardrails
+
+### Features
+
+* harden the gate and the validation script ([5a27852](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/5a27852e787b430278bb4c4b8ecaf2303c44babd))
+
+
+### Bug Fixes
+
+* make LICENSE detectable as MIT ([d0171f6](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/d0171f638cbd49dc8bd717687adf80520f398a2f))
+* make version and manifest validators fail loudly ([9ba2667](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/9ba2667981ed84076cd76f002f78ba57c920aaa9))
+* tighten plan-only guardrails ([804e21d](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/804e21d0b51cb9372c06f3dda9634e310b50e6f6))
+
+
+### Documentation
+
+* bring the evals documentation in line with the review fixes ([8edec76](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/8edec764f73cd3f5c1a15961288c1f03f59f33a1))
+* document skill evals and their classification ([84059ef](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/84059ef56751f0d7b64c46d85c33a191020afcc0))
+
 ## [0.1.1](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/compare/terraform-multicloud-orchestrator-v0.1.0...terraform-multicloud-orchestrator-v0.1.1) (2026-10-17)
 
 
