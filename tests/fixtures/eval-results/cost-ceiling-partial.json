@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.308",
+  "startedAt": "2026-10-24T03:43:58.597Z",
+  "durationSeconds": 8,
+  "costUsd": 0.0628065,
+  "partial": true,
+  "partialReason": "cost_ceiling",
+  "suite": {
+    "root": "plugins/terraform-multicloud-orchestrator",
+    "ablation": "none",
+    "judgeModel": "claude-haiku-5-5",
+    "tagFilters": [
+      "gate"
+    ],
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "terraform-multicloud-orchestrator",
+        "version": "0.1.1",
+        "path": "plugins/terraform-multicloud-orchestrator"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "ask-once",
+      "dir": "evals/ask-once",
+      "source": "prose",
+      "model": "claude-sonnet-5-5",
+      "runsPerCase": 3,
+      "timeoutSeconds": 240,
+      "maxTurns": 6,
+      "graders": [
+        {
+          "name": "asks-cloud-and-pinning-judged",
+          "type": "llm",
+          "weight": 1,
+          "config": {
+            "criteria": "PASS if the reply asks which cloud or clouds to target (AWS, Azure, GCP or OCI) and which provider-pinning strategy to use (exact, pessimistic-minor, pessimistic-patch or latest-stable-and-pin), and does not produce Terraform resource blocks yet.\nFAIL if the reply writes Terraform resources without asking, or asks only one of the two questions.",
+            "focus": "last_message"
+          }
+        },
+        {
+          "name": "no-hcl-yet",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "resource\\s+\"[a-z_]+\"\\s+\"",
+            "flags": "",
+            "match": "not_contains"
+          }
+        },
+        {
+          "name": "skill-fired",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "\"skill\"\\s*:\\s*\"(?:[\\w-]+:)?terraform-multicloud-orchestrator\"",
+            "min": 1
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0.6666666666666666,
+            "passed": false,
+            "turns": 4,
+            "costUsd": 0.0628065,
+            "judgeCostUsd": 0,
+            "durationSeconds": 8,
+            "startedAt": "2026-10-24T03:43:58.789Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE0/out/trace.jsonl",
+            "skippedPaidGraders": true,
+            "graders": [
+              {
+                "name": "asks-cloud-and-pinning-judged",
+                "passed": false,
+                "weight": 1,
+                "explanation": "skipped: cost ceiling",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-hcl-yet",
+                "passed": true,
+                "weight": 1,
+                "explanation": "pattern absent as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..\u221e)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.6666666666666666,
+        "passRate": 0
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 1,
+    "casesPassed": 0,
+    "overallScore": 0.6666666666666666,
+    "overallPassRate": 0
+  }
+}

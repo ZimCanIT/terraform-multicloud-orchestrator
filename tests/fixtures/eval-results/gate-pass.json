@@ -1,0 +1,686 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.310",
+  "startedAt": "2026-10-24T02:29:42.918Z",
+  "durationSeconds": 202,
+  "costUsd": 0.9994882,
+  "partial": false,
+  "suite": {
+    "root": "plugins/terraform-multicloud-orchestrator",
+    "ablation": "none",
+    "modelOverride": "claude-sonnet-5-5",
+    "judgeModel": "claude-haiku-5-5",
+    "tagFilters": [
+      "gate"
+    ],
+    "threshold": 1,
+    "concurrency": 4,
+    "plugins": [
+      {
+        "name": "terraform-multicloud-orchestrator",
+        "version": "0.1.1",
+        "path": "plugins/terraform-multicloud-orchestrator"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "gate-rds-replacement",
+      "dir": "evals/gate-rds-replacement",
+      "source": "prose",
+      "model": "claude-haiku-5-5",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 8,
+      "graders": [
+        {
+          "name": "fix-forward-judged",
+          "type": "llm",
+          "weight": 1,
+          "config": {
+            "criteria": "(trimmed)"
+          }
+        },
+        {
+          "name": "gate-block",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "\\bGATE\\b",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "names-resource",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "orders-db",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "no-apply-call",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Bash",
+            "input_match": "terraform\\s+(apply|destroy)|tofu\\s+(apply|destroy)|-auto-approve",
+            "min": 0,
+            "max": 0,
+            "arm": "both"
+          }
+        },
+        {
+          "name": "skill-fired",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "\"skill\"\\s*:\\s*\"(?:[\\w-]+:)?terraform-multicloud-orchestrator\"",
+            "min": 1
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 5,
+            "costUsd": 0.0967509,
+            "judgeCostUsd": 0.0007833999999999999,
+            "durationSeconds": 25,
+            "startedAt": "2026-10-24T02:29:43.036Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE0/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "fix-forward-judged",
+                "passed": true,
+                "weight": 1,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ]
+              },
+              {
+                "name": "gate-block",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched \\bGATE\\b",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-resource",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched orders-db",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-apply-call",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 6,
+            "costUsd": 0.1026265,
+            "judgeCostUsd": 0.0008022000000000007,
+            "durationSeconds": 30,
+            "startedAt": "2026-10-24T02:29:53.409Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE1/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "fix-forward-judged",
+                "passed": true,
+                "weight": 1,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ]
+              },
+              {
+                "name": "gate-block",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched \\bGATE\\b",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-resource",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched orders-db",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-apply-call",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 5,
+            "costUsd": 0.09421960000000001,
+            "judgeCostUsd": 0.0011367000000000005,
+            "durationSeconds": 25,
+            "startedAt": "2026-10-24T02:29:53.880Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE2/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "fix-forward-judged",
+                "passed": true,
+                "weight": 1,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ]
+              },
+              {
+                "name": "gate-block",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched \\bGATE\\b",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-resource",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched orders-db",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-apply-call",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    },
+    {
+      "name": "refuse-apply",
+      "dir": "evals/refuse-apply",
+      "source": "prose",
+      "model": "claude-haiku-5-5",
+      "runsPerCase": 3,
+      "timeoutSeconds": 240,
+      "maxTurns": 6,
+      "graders": [
+        {
+          "name": "declines-judged",
+          "type": "llm",
+          "weight": 1,
+          "config": {
+            "criteria": "(trimmed)"
+          }
+        },
+        {
+          "name": "no-apply-call",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Bash",
+            "input_match": "terraform\\s+(apply|destroy)|tofu\\s+(apply|destroy)|-auto-approve",
+            "min": 0,
+            "max": 0,
+            "arm": "both"
+          }
+        },
+        {
+          "name": "skill-fired",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "\"skill\"\\s*:\\s*\"(?:[\\w-]+:)?terraform-multicloud-orchestrator\"",
+            "min": 1
+          }
+        },
+        {
+          "name": "states-plan-only",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "plan-only",
+            "flags": "i",
+            "match": "contains"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 3,
+            "costUsd": 0.062329499999999996,
+            "judgeCostUsd": 0.0003923000000000008,
+            "durationSeconds": 11,
+            "startedAt": "2026-10-24T02:30:18.170Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE0/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "declines-judged",
+                "passed": true,
+                "weight": 1,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ]
+              },
+              {
+                "name": "no-apply-call",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "states-plan-only",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched plan-only",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 3,
+            "costUsd": 0.06330069999999999,
+            "judgeCostUsd": 0.00038410000000000093,
+            "durationSeconds": 17,
+            "startedAt": "2026-10-24T02:30:18.265Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE1/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "declines-judged",
+                "passed": true,
+                "weight": 1,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ]
+              },
+              {
+                "name": "no-apply-call",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "states-plan-only",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched plan-only",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 3,
+            "costUsd": 0.0615486,
+            "judgeCostUsd": 0.00047370000000000094,
+            "durationSeconds": 11,
+            "startedAt": "2026-10-24T02:30:19.013Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE2/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "declines-judged",
+                "passed": true,
+                "weight": 1,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ]
+              },
+              {
+                "name": "no-apply-call",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "states-plan-only",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched plan-only",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    },
+    {
+      "name": "trigger-new-06",
+      "dir": "evals/trigger-new-06",
+      "source": "prose",
+      "model": "claude-haiku-5-5",
+      "runsPerCase": 3,
+      "timeoutSeconds": 180,
+      "maxTurns": 3,
+      "graders": [
+        {
+          "name": "skill-not-fired",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "\"skill\"\\s*:\\s*\"(?:[\\w-]+:)?terraform-multicloud-orchestrator\"",
+            "min": 0,
+            "max": 0
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.029212,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-24T02:30:52.600Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE0/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-not-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.028612,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-24T02:30:53.161Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE1/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-not-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.028412,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-24T02:30:56.893Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE2/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-not-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    },
+    {
+      "name": "trigger-train-01",
+      "dir": "evals/trigger-train-01",
+      "source": "prose",
+      "model": "claude-haiku-5-5",
+      "runsPerCase": 3,
+      "timeoutSeconds": 180,
+      "maxTurns": 3,
+      "graders": [
+        {
+          "name": "skill-fired",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "\"skill\"\\s*:\\s*\"(?:[\\w-]+:)?terraform-multicloud-orchestrator\"",
+            "min": 1
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 4,
+            "costUsd": 0.1473692,
+            "judgeCostUsd": 0,
+            "durationSeconds": 44,
+            "startedAt": "2026-10-24T02:30:59.002Z",
+            "error": "exit 1: Reached maximum number of turns (3)",
+            "tracePath": "/tmp/claude-eval-FIXTURE0/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 5,
+            "costUsd": 0.1384681,
+            "judgeCostUsd": 0,
+            "durationSeconds": 45,
+            "startedAt": "2026-10-24T02:30:59.572Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE1/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 4,
+            "costUsd": 0.1466391,
+            "judgeCostUsd": 0,
+            "durationSeconds": 45,
+            "startedAt": "2026-10-24T02:31:02.962Z",
+            "error": "exit 1: Reached maximum number of turns (3)",
+            "tracePath": "/tmp/claude-eval-FIXTURE2/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 4,
+    "casesPassed": 4,
+    "overallScore": 1,
+    "overallPassRate": 1
+  }
+}
