@@ -70,6 +70,14 @@ repos:
         pass_filenames: false
         files: "(^|/)SKILL\\.md$|^scripts/validate_skill_frontmatter\\.py$"
 
+      - id: validate-evals
+        name: validate skill eval cases
+        language: python
+        additional_dependencies: [pyyaml]
+        entry: python scripts/validate_evals.py
+        pass_filenames: false
+        files: "^plugins/[^/]+/evals/|(^|/)eval_queries\\.json$|^scripts/(validate_evals|eval_suite)\\.py$"
+
       - id: validate-versions
         name: validate release version fields agree
         language: python

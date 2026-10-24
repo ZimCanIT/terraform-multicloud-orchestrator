@@ -42,6 +42,9 @@ Thumbs.db
 __pycache__/
 *.pyc
 
+# Skill eval run output
+plugins/*/evals/results/
+
 # Local Claude Code settings
 .claude/settings.local.json
 

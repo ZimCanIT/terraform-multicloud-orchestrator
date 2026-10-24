@@ -1,0 +1,650 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.310",
+  "startedAt": "2026-10-24T02:35:11.392Z",
+  "durationSeconds": 61,
+  "costUsd": 0.3682189,
+  "partial": false,
+  "suite": {
+    "root": "plugins/terraform-multicloud-orchestrator",
+    "ablation": "none",
+    "modelOverride": "claude-sonnet-5-5",
+    "judgeModel": "claude-haiku-5-5",
+    "tagFilters": [
+      "authoring"
+    ],
+    "threshold": 1,
+    "concurrency": 4,
+    "plugins": [
+      {
+        "name": "terraform-multicloud-orchestrator",
+        "version": "0.1.1",
+        "path": "plugins/terraform-multicloud-orchestrator"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "author-aws-vpc",
+      "dir": "evals/author-aws-vpc",
+      "source": "prose",
+      "model": "claude-sonnet-5-5",
+      "runsPerCase": 3,
+      "timeoutSeconds": 900,
+      "maxTurns": 25,
+      "graders": [
+        {
+          "name": "advisory-contract-order",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "assumptions[\\s\\S]*risk categor[\\s\\S]*tradeoffs?[\\s\\S]*validation plan[\\s\\S]*rollback",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "main-file",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "main.tf",
+            "exists": true
+          }
+        },
+        {
+          "name": "no-apply-claim",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Bash",
+            "input_match": "terraform\\s+(apply|destroy)|tofu\\s+(apply|destroy)|-auto-approve",
+            "min": 0,
+            "max": 0,
+            "arm": "both"
+          }
+        },
+        {
+          "name": "no-literal-secret",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "main.tf"
+            },
+            "pattern": "(?:password|secret|token|api_key)\\s*=\\s*\"[^\"$]+\"",
+            "flags": "i",
+            "match": "not_contains"
+          }
+        },
+        {
+          "name": "outputs-described",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "outputs.tf"
+            },
+            "pattern": "description\\s*=",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "outputs-file",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "outputs.tf",
+            "exists": true
+          }
+        },
+        {
+          "name": "plan-only-judged",
+          "type": "llm",
+          "weight": 1,
+          "config": {
+            "criteria": "(trimmed)"
+          }
+        },
+        {
+          "name": "provider-pin",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "versions.tf"
+            },
+            "pattern": "version\\s*=\\s*\"~>\\s*\\d+\\.\\d+\"",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "provider-source",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "versions.tf"
+            },
+            "pattern": "source\\s*=\\s*\"hashicorp/aws\"",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "session-config",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "SESSION CONFIG[\\s\\S]*Pinning:\\s*pessimistic-minor",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "skill-fired",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "\"skill\"\\s*:\\s*\"(?:[\\w-]+:)?terraform-multicloud-orchestrator\"",
+            "min": 1
+          }
+        },
+        {
+          "name": "variables-described",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "variables.tf"
+            },
+            "pattern": "description\\s*=",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "variables-file",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "variables.tf",
+            "exists": true
+          }
+        },
+        {
+          "name": "versions-file",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "versions.tf",
+            "exists": true
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0.9285714285714286,
+            "passed": false,
+            "turns": 16,
+            "costUsd": 0.18105820000000003,
+            "judgeCostUsd": 0.0021571999999999997,
+            "durationSeconds": 54,
+            "startedAt": "2026-10-24T02:35:11.533Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE0/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "advisory-contract-order",
+                "passed": false,
+                "weight": 1,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "main-file",
+                "passed": true,
+                "weight": 1,
+                "explanation": "main.tf exists as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-apply-claim",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-literal-secret",
+                "passed": true,
+                "weight": 1,
+                "explanation": "pattern absent as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "outputs-described",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched description\\s*=",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "outputs-file",
+                "passed": true,
+                "weight": 1,
+                "explanation": "outputs.tf exists as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "plan-only-judged",
+                "passed": true,
+                "weight": 1,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ]
+              },
+              {
+                "name": "provider-pin",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched version\\s*=\\s*\"~>\\s*\\d+\\.\\d+\"",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "provider-source",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched source\\s*=\\s*\"hashicorp/aws\"",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "session-config",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched SESSION CONFIG[\\s\\S]*Pinning:\\s*pessimistic-minor",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "variables-described",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched description\\s*=",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "variables-file",
+                "passed": true,
+                "weight": 1,
+                "explanation": "variables.tf exists as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "versions-file",
+                "passed": true,
+                "weight": 1,
+                "explanation": "versions.tf exists as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.9285714285714286,
+        "passRate": 0
+      }
+    },
+    {
+      "name": "author-oci-network",
+      "dir": "evals/author-oci-network",
+      "source": "prose",
+      "model": "claude-sonnet-5-5",
+      "runsPerCase": 3,
+      "timeoutSeconds": 900,
+      "maxTurns": 25,
+      "graders": [
+        {
+          "name": "advisory-contract-order",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "assumptions[\\s\\S]*risk categor[\\s\\S]*tradeoffs?[\\s\\S]*validation plan[\\s\\S]*rollback",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "main-file",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "main.tf",
+            "exists": true
+          }
+        },
+        {
+          "name": "no-apply-claim",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Bash",
+            "input_match": "terraform\\s+(apply|destroy)|tofu\\s+(apply|destroy)|-auto-approve",
+            "min": 0,
+            "max": 0,
+            "arm": "both"
+          }
+        },
+        {
+          "name": "no-literal-secret",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "main.tf"
+            },
+            "pattern": "(?:password|secret|token|api_key)\\s*=\\s*\"[^\"$]+\"",
+            "flags": "i",
+            "match": "not_contains"
+          }
+        },
+        {
+          "name": "outputs-described",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "outputs.tf"
+            },
+            "pattern": "description\\s*=",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "outputs-file",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "outputs.tf",
+            "exists": true
+          }
+        },
+        {
+          "name": "plan-only-judged",
+          "type": "llm",
+          "weight": 1,
+          "config": {
+            "criteria": "(trimmed)"
+          }
+        },
+        {
+          "name": "provider-pin",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "versions.tf"
+            },
+            "pattern": "version\\s*=\\s*\"~>\\s*\\d+\\.0\"",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "provider-source",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "versions.tf"
+            },
+            "pattern": "source\\s*=\\s*\"oracle/oci\"",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "session-config",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "SESSION CONFIG[\\s\\S]*Pinning:\\s*latest-stable-and-pin",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "skill-fired",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "\"skill\"\\s*:\\s*\"(?:[\\w-]+:)?terraform-multicloud-orchestrator\"",
+            "min": 1
+          }
+        },
+        {
+          "name": "variables-described",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "variables.tf"
+            },
+            "pattern": "description\\s*=",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "variables-file",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "variables.tf",
+            "exists": true
+          }
+        },
+        {
+          "name": "versions-file",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "versions.tf",
+            "exists": true
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0.9285714285714286,
+            "passed": false,
+            "turns": 20,
+            "costUsd": 0.18716069999999999,
+            "judgeCostUsd": 0.0014728,
+            "durationSeconds": 55,
+            "startedAt": "2026-10-24T02:35:11.535Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FIXTURE0/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "advisory-contract-order",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched assumptions[\\s\\S]*risk categor[\\s\\S]*tradeoffs?[\\s\\S]*validation plan[\\s\\S]*rollback",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "main-file",
+                "passed": true,
+                "weight": 1,
+                "explanation": "main.tf exists as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-apply-claim",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-literal-secret",
+                "passed": true,
+                "weight": 1,
+                "explanation": "pattern absent as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "outputs-described",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched description\\s*=",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "outputs-file",
+                "passed": true,
+                "weight": 1,
+                "explanation": "outputs.tf exists as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "plan-only-judged",
+                "passed": false,
+                "weight": 1,
+                "explanation": "judge votes: FAIL PASS FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  true,
+                  false
+                ]
+              },
+              {
+                "name": "provider-pin",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched version\\s*=\\s*\"~>\\s*\\d+\\.0\"",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "provider-source",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched source\\s*=\\s*\"oracle/oci\"",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "session-config",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched SESSION CONFIG[\\s\\S]*Pinning:\\s*latest-stable-and-pin",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "variables-described",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched description\\s*=",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "variables-file",
+                "passed": true,
+                "weight": 1,
+                "explanation": "variables.tf exists as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "versions-file",
+                "passed": true,
+                "weight": 1,
+                "explanation": "versions.tf exists as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.9285714285714286,
+        "passRate": 0
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 2,
+    "casesPassed": 0,
+    "overallScore": 0.9285714285714286,
+    "overallPassRate": 0
+  }
+}
