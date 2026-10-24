@@ -1,12 +1,16 @@
+# Skill evals. The offline job needs no secret and calls no model. The live job gives ANTHROPIC_API_KEY to one
+# step, and a fork or a bot never reaches it. Anyone who can push a branch to this repository can still run
+# code with the key, as with any repository secret; the evals README says how to narrow that.
 name: skill-evals
 
 on:
   pull_request:
+    branches: [main]
   push:
     branches:
       - main
   schedule:
-    - cron: "17 5 * * 1"
+    - cron: "17 5 * * 1" # Mondays: both suites on stable, and the latest-channel canary
   workflow_dispatch:
     inputs:
       suite:
@@ -34,6 +38,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Only a newer push to the same pull request cancels a run; main and the schedule always finish.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -42,7 +47,9 @@ env:
   TERRAFORM_VERSION: "1.16.6"
   PYYAML_VERSION: "6.0.3"
   PYTEST_VERSION: "9.1.1"
-  ZIZMOR_VERSION: "1.31.1"
+  # The newest releases published on or before 2026-10-10, the 14-day rule of the Foundry checks workflow.
+  # Dependabot does not read these pins, so they change by hand, and the date says when they were chosen.
+  ZIZMOR_VERSION: "1.30.1"
   ACTIONLINT_PY_VERSION: "1.7.12.25"
   PLUGIN_DIR: plugins/terraform-multicloud-orchestrator
   EVAL_JUDGE_MODEL: claude-haiku-5-5
@@ -132,11 +139,15 @@ jobs:
           tests/test_grade_eval_workspaces.py tests/test_eval_graders.py
           tests/test_skill_evals_workflow.py -q
 
+      # Only this workflow is linted. The other workflows of the repository predate these checks and are not part of this change.
       - name: Lint this workflow
         id: workflow_lint
+        env:
+          # Read by zizmor for its online audits. The token is read-only for this job.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           actionlint .github/workflows/skill-evals.yml
-          zizmor --offline .github/workflows/skill-evals.yml
+          zizmor --no-progress .github/workflows/skill-evals.yml
 
       - name: Validate the plugin
         id: plugin_validate
@@ -150,7 +161,7 @@ jobs:
           out="${RUNNER_TEMP}/preflight"
           mkdir -p "${out}"
           # A ceiling of $0 stops the run before the first model call, but the cases are still loaded
-          # and each grader is checked against the tools the run grants. Exit 2 with the
+          # and each grader that requires a tool is checked against the tools the run grants. Exit 2 with the
           # cost_ceiling reason therefore means the suite loaded, and it needs no API key.
           for suite in gate authoring; do
             grants=()
@@ -191,7 +202,8 @@ jobs:
           : > "${changed}"
           if [ "${EVENT_NAME}" = pull_request ]; then
             # Without rename detection a file moved out of a relevant path is listed under both names.
-            git diff --name-only --no-renames HEAD^1 HEAD > "${changed}"
+            # core.quotePath keeps a non-ASCII name as it is; git would otherwise wrap it in quotes and escapes.
+            git -c core.quotePath=false diff --name-only --no-renames HEAD^1 HEAD > "${changed}"
           fi
           python scripts/classify_eval_run.py plan \
             --event "${EVENT_NAME}" \
@@ -345,6 +357,7 @@ jobs:
           MODEL: ${{ inputs.model }}
           CEILING: ${{ matrix.suite == 'authoring' && '5' || '4' }}
         run: |
+          # No -e: the exit code of the eval is recorded and classified, not acted on here.
           set -uo pipefail
           out="${RUNNER_TEMP}/eval"
           mkdir -p "${out}"
@@ -364,7 +377,6 @@ jobs:
             fi
             args+=(--model "${MODEL}")
           fi
-          set +e
           claude plugin eval "${PLUGIN_DIR}" "${args[@]}" > "${out}/eval.stdout" 2> "${out}/eval.stderr"
           echo "exit_code=$?" >> "${GITHUB_OUTPUT}"
 
@@ -375,8 +387,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          export TF_PLUGIN_CACHE_DIR="${RUNNER_TEMP}/terraform-plugin-cache"
-          mkdir -p "${TF_PLUGIN_CACHE_DIR}"
+          # A directory made now, so a provider the eval step left under RUNNER_TEMP cannot be reused from the cache.
+          TF_PLUGIN_CACHE_DIR="$(mktemp -d "${RUNNER_TEMP}/terraform-plugin-cache.XXXXXX")"
+          export TF_PLUGIN_CACHE_DIR
           python scripts/grade_eval_workspaces.py \
             --aggregate "${RUNNER_TEMP}/eval/results/aggregate-result.json" \
             --out "${RUNNER_TEMP}/eval/static-grades.json"
@@ -432,7 +445,8 @@ jobs:
           # Every command below runs whatever the earlier ones returned, and the first failure sets the exit code.
           rc=0
           python scripts/classify_eval_run.py "${args[@]}" || rc=$?
-          # Upload the result without prompts or model replies, plus the runner's own messages.
+          # Upload the record, the result without prompts or model replies, the Terraform grading (its diagnostics can
+          # quote the HCL the agent wrote) and the runner's own messages.
           if [ -f "${eval_dir}/results/aggregate-result.json" ]; then
             python scripts/classify_eval_run.py redact \
               --aggregate "${eval_dir}/results/aggregate-result.json" --out "${record}/aggregate-redacted.json" \
@@ -501,4 +515,5 @@ jobs:
           name: skill-eval-drift
           path: ${{ runner.temp }}/drift/
           retention-days: 14
+          # The compare step writes nothing when the run lacks one of its two records.
           if-no-files-found: ignore
