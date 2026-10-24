@@ -362,10 +362,29 @@ def test_run_without_grader_results_is_inconclusive():
     assert (result.klass, result.reasons) == ("INCONCLUSIVE", ["no_grader_results"])
 
 
-def test_invalid_regex_in_a_grader_is_a_grader_error():
+def test_invalid_regex_in_a_grader_is_an_invalid_pattern():
     run = make_run(["states-plan-only"], failed=["states-plan-only"], explanations={"states-plan-only": "grader threw: Invalid regular expression: /(?i)x/"})
     result = attempt(run)
-    assert (result.klass, result.reasons) == ("INFRA_ERROR", ["grader_error"])
+    assert (result.klass, result.reasons) == ("INFRA_ERROR", ["invalid_pattern"])
+
+
+def test_an_invalid_pattern_that_mentions_the_network_is_still_an_invalid_pattern():
+    # The words of the pattern must not be read as the words of an API error.
+    message = "grader threw: Invalid regular expression: /network(/: Unterminated group"
+    run = make_run(["states-plan-only"], failed=["states-plan-only"], explanations={"states-plan-only": message})
+    assert attempt(run).reasons == ["invalid_pattern"]
+
+
+def test_an_invalid_pattern_outranks_another_grader_that_threw_an_api_error():
+    run = make_run(
+        ["skill-fired", "declines-judged", "states-plan-only"],
+        failed=["declines-judged", "states-plan-only"],
+        explanations={
+            "declines-judged": "grader threw: 529 overloaded_error",
+            "states-plan-only": "grader threw: Invalid regular expression: /(?i)x/",
+        },
+    )
+    assert attempt(run).reasons == ["invalid_pattern"]
 
 
 def test_failed_terraform_validate_fails_an_otherwise_clean_attempt():
@@ -386,6 +405,17 @@ def test_unavailable_static_check_is_inconclusive():
 def test_unformatted_but_valid_config_passes_with_a_warning():
     result = attempt(make_run(["skill-fired"]), static={"status": "ok", "fmt": "diff"})
     assert (result.klass, result.warnings) == ("PASS", ["fmt_diff"])
+
+
+def test_a_fmt_that_could_not_finish_passes_with_a_warning_and_not_in_silence():
+    result = attempt(make_run(["skill-fired"]), static={"status": "ok", "fmt": "error", "detail": "fmt: timed out after 300s"})
+    assert (result.klass, result.warnings) == ("PASS", ["fmt_error"])
+
+
+def test_a_static_status_nobody_knows_is_not_a_pass():
+    # terraform validate did not look at the attempt, whatever the grader called that.
+    result = attempt(make_run(["skill-fired"]), static={"status": "some_future_status", "detail": "x"})
+    assert (result.klass, result.reasons) == ("INCONCLUSIVE", ["static_unavailable"])
 
 
 # --- cases ------------------------------------------------------------------
@@ -483,7 +513,7 @@ def test_real_grader_that_threw_on_an_invalid_regex_is_a_configuration_error(tmp
     assert (record["class"], record["reasons"]) == ("ERROR", ["configuration_error"])
     by_name = {case["name"]: case for case in record["cases"]}
     assert by_name["refuse-apply"]["class"] == "INCONCLUSIVE"
-    assert by_name["refuse-apply"]["reasons"] == ["grader_error"]
+    assert by_name["refuse-apply"]["reasons"] == ["invalid_pattern"]
 
 
 def test_real_turn_capped_attempts_that_pass_are_not_errors(tmp_path):
@@ -628,6 +658,13 @@ def test_model_override_is_the_recorded_agent_model(tmp_path):
     assert (record["class"], record["models"]["agent"]) == ("PASS", "claude-haiku-5-5")
 
 
+def test_every_model_the_cases_pin_is_recorded_when_there_is_no_override(tmp_path):
+    aggregate, spec = synthetic_gate()
+    aggregate["cases"][0]["model"] = "claude-haiku-5-5"
+    _, record = classify(tmp_path, aggregate, spec)
+    assert record["models"]["agent"] == "claude-haiku-5-5, claude-sonnet-5-5"
+
+
 def test_authentication_error_is_a_configuration_error(tmp_path):
     runs = [make_run([], error="exit 1: 401 authentication_error: invalid x-api-key") for _ in range(3)]
     aggregate, spec = synthetic_gate(cases=[good_case("refuse-apply"), make_case("trigger-train-01", ["skill-fired"], runs)])
@@ -742,6 +779,34 @@ def test_infra_share_above_twenty_percent_is_inconclusive(tmp_path):
     assert "infra_share" in record["reasons"]
 
 
+def test_a_judge_error_nobody_recognises_is_service_noise_and_not_a_setup_error(tmp_path):
+    cases = twelve_passing_capability_cases()
+    cases[0]["arms"]["with"][0] = make_run(
+        ["skill-fired", "declines-judged"],
+        failed=["declines-judged"],
+        explanations={"declines-judged": "grader threw: the judge replied with nothing"},
+    )
+    spec = {case["name"]: ("gate", "capability") for case in cases}
+    code, record = classify(tmp_path, make_aggregate(cases), spec)
+    assert (record["class"], record["reasons"], code) == ("PASS", [], 0)
+    assert any("1 attempt(s) hit an infrastructure error" in warning for warning in record["warnings"])
+
+
+def test_a_judge_error_nobody_recognises_counts_toward_the_infra_share(tmp_path):
+    cases = twelve_passing_capability_cases()
+    thrown = {"declines-judged": "grader threw: the judge replied with nothing"}
+    for case in cases[:4]:
+        case["arms"]["with"][0] = make_run(["skill-fired", "declines-judged"], failed=["declines-judged"], explanations=thrown)
+    for case in cases[4:6]:
+        case["arms"]["with"][0] = make_run(["skill-fired", "declines-judged"], failed=["declines-judged"], explanations=thrown)
+        case["arms"]["with"][1] = make_run(["skill-fired", "declines-judged"], failed=["declines-judged"], explanations=thrown)
+    spec = {case["name"]: ("gate", "capability") for case in cases}
+    _, record = classify(tmp_path, make_aggregate(cases), spec)
+    assert record["class"] == "INCONCLUSIVE"
+    assert "infra_share" in record["reasons"]
+    assert "configuration_error" not in record["reasons"]
+
+
 def test_infra_share_below_the_limit_still_passes(tmp_path):
     cases = twelve_passing_capability_cases()
     for case in cases[:4]:
@@ -818,10 +883,77 @@ def test_a_terraform_case_with_static_grades_passes(tmp_path):
     assert code == 0
 
 
+def test_a_fmt_that_could_not_finish_is_named_in_the_warnings(tmp_path):
+    aggregate, _ = synthetic_gate(cases=[good_case("author-aws-vpc", graders=("skill-fired",))])
+    aggregate["suite"]["tagFilters"] = ["authoring"]
+    entries = [{"case": "author-aws-vpc", "attempt": index, "status": "ok", "fmt": "error", "detail": "fmt: timed out after 300s"} for index in range(3)]
+    (tmp_path / "static.json").write_text(json.dumps({"schema_version": 1, "attempts": entries}))
+    _, record = classify(
+        tmp_path, aggregate, {"author-aws-vpc": ("authoring", "capability")}, suite="authoring", writes_terraform=("author-aws-vpc",),
+        extra=["--static-grades", str(tmp_path / "static.json")],
+    )
+    assert record["class"] == "PASS"
+    assert "author-aws-vpc: `terraform fmt` could not finish on 3 attempt(s)" in record["warnings"]
+
+
+@pytest.mark.parametrize("static_grades", [{"attempts": None}, {"attempts": "x"}, ["not", "an", "object"]])
+def test_static_grades_in_an_odd_shape_leave_the_terraform_case_inconclusive(tmp_path, static_grades):
+    aggregate, _ = synthetic_gate(cases=[good_case("author-aws-vpc", graders=("skill-fired",))])
+    aggregate["suite"]["tagFilters"] = ["authoring"]
+    (tmp_path / "static.json").write_text(json.dumps(static_grades))
+    _, record = classify(
+        tmp_path, aggregate, {"author-aws-vpc": ("authoring", "capability")}, suite="authoring", writes_terraform=("author-aws-vpc",),
+        extra=["--static-grades", str(tmp_path / "static.json")],
+    )
+    assert record["cases"][0]["reasons"] == ["static_unavailable"]
+
+
 def test_a_case_that_writes_no_terraform_needs_no_static_grade(tmp_path):
     aggregate, spec = synthetic_gate()
     _, record = classify(tmp_path, aggregate, spec)
     assert record["class"] == "PASS"
+
+
+def malformed_case_without_a_name(aggregate):
+    del aggregate["cases"][0]["name"]
+
+
+def malformed_arms_as_a_list(aggregate):
+    aggregate["cases"][0]["arms"] = ["with"]
+
+
+def malformed_case_as_a_string(aggregate):
+    aggregate["cases"][0] = "refuse-apply"
+
+
+@pytest.mark.parametrize("damage", [malformed_case_without_a_name, malformed_arms_as_a_list, malformed_case_as_a_string])
+def test_a_result_in_a_shape_the_script_does_not_know_still_leaves_an_error_record(tmp_path, damage):
+    aggregate, spec = synthetic_gate()
+    damage(aggregate)
+    code, record = classify(tmp_path, aggregate, spec)
+    assert (code, record["class"], record["reasons"]) == (1, "ERROR", ["eval_unreadable"])
+    assert any("shape this script cannot read" in warning for warning in record["warnings"])
+    assert (tmp_path / "classification.md").is_file()
+
+
+def test_a_line_break_in_a_result_cannot_start_a_workflow_command(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    aggregate, spec = synthetic_gate()
+    aggregate["claudeVersion"] = "2.1.308\n::error title=forged::made up"
+    aggregate["cases"].append(make_case("evil\n::notice::made up too", ["skill-fired"], [make_run(["skill-fired"])] * 3))
+    classify(tmp_path, aggregate, spec, extra=["--harness-version", "2.1.308"])
+    lines = capsys.readouterr().out.splitlines()
+    assert any("made up" in line for line in lines), "the warnings should still be printed"
+    assert not [line for line in lines if line.startswith("::error title=forged") or line.startswith("::notice::made up")]
+    markdown = (tmp_path / "classification.md").read_text()
+    assert not [line for line in markdown.splitlines() if line.startswith("::")]
+
+
+def test_a_pipe_in_a_name_cannot_start_another_table_cell(tmp_path):
+    aggregate, spec = synthetic_gate()
+    aggregate["suite"]["plugins"][0]["name"] = "evil|name"
+    classify(tmp_path, aggregate, spec)
+    assert "| Plugin | evil\\|name 0.2.0 |" in (tmp_path / "classification.md").read_text()
 
 
 # --- trust, credentials and governance --------------------------------------
@@ -1041,6 +1173,17 @@ def test_same_harness_version_cannot_drift():
     assert result["verdict"] == "SAME_HARNESS"
 
 
+def test_a_flip_on_the_same_release_is_not_labelled_harness_drift():
+    # Both channels name one release, so the harness did not change and the flip is the case's own noise.
+    result = classifier.compare_records(drift_record("PASS", {"a": "PASS"}, "2.1.310"), drift_record("FAIL", {"a": "FAIL"}, "2.1.310"))
+    assert [row["label"] for row in result["cases"]] == ["INDETERMINATE"]
+
+
+def test_a_failure_on_the_same_release_is_still_a_skill_regression_candidate():
+    result = classifier.compare_records(drift_record("FAIL", {"a": "FAIL"}, "2.1.310"), drift_record("FAIL", {"a": "FAIL"}, "2.1.310"))
+    assert [row["label"] for row in result["cases"]] == ["SKILL_REGRESSION_CANDIDATE"]
+
+
 def test_run_that_did_not_complete_is_not_comparable():
     result = classifier.compare_records(drift_record("ERROR", {}, "2.1.308"), drift_record("PASS", {"a": "PASS"}, "2.1.310"))
     assert result["verdict"] == "NOT_COMPARABLE"
@@ -1144,6 +1287,12 @@ def test_pull_request_that_touches_nothing_relevant_is_skipped():
 )
 def test_changes_to_evals_and_their_tooling_count_as_relevant(path):
     assert plan(changed_files=[path])["run_live"] is True
+
+
+def test_a_path_that_git_quotes_is_not_skipped():
+    # git prints a non-ASCII path as "plugins/.../caf\\303\\251.md", with the quotes. It cannot be matched
+    # against a prefix, and a change that cannot be placed must not slip past the gate.
+    assert plan(changed_files=['"plugins/terraform-multicloud-orchestrator/evals/caf\\303\\251/prompt.md"'])["run_live"] is True
 
 
 def test_changes_to_other_scripts_do_not_count_as_relevant():

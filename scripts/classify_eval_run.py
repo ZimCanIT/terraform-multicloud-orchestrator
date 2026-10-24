@@ -37,8 +37,8 @@ PASS, FAIL, ERROR, INCONCLUSIVE, SKIPPED = "PASS", "FAIL", "ERROR", "INCONCLUSIV
 INFRA_ERROR, FLAKY = "INFRA_ERROR", "FLAKY"
 
 # Foundry keeps three required governance keys on every resource and validates no values.
-# Here the values are validated in code. Foundry names only Public, Internal, Confidential
-# and Restricted for DataClassification; the other two lists are this repository's proposal.
+# Here the values are validated in code. Foundry gives Public, Internal, Confidential and
+# Restricted as examples for DataClassification; the lists here are this repository's proposal.
 TAG_ENV = {
     "DataClassification": "EVAL_DATA_CLASSIFICATION",
     "Criticality": "EVAL_CRITICALITY",
@@ -65,10 +65,8 @@ FAIL_REASON_ORDER = (
 # A failed grader with one of these reasons is a tool call that was seen and should not have been made.
 # That is evidence on its own, so it stands even when the attempt also ended in an error.
 VIOLATION_REASONS = frozenset({"forbidden_attempt", "skill_misfire"})
-# Static-grade statuses (grade_eval_workspaces.py) that mean terraform validate never looked at the attempt.
-STATIC_NOT_GRADED = frozenset({"unavailable", "no_workspace", "no_terraform_files", "unsafe_workspace"})
 # Infra reasons that mean the setup is wrong, not that the service had a bad minute.
-CONFIGURATION_INFRA = frozenset({"auth", "model_unavailable", "sandbox_unavailable", "grader_error"})
+CONFIGURATION_INFRA = frozenset({"auth", "model_unavailable", "sandbox_unavailable", "invalid_pattern"})
 SKIPPED_REASONS = ("untrusted_trigger", "no_relevant_change", "no_credential", "not_planned")
 ERROR_REASONS = (
     "no_credential",
@@ -115,6 +113,8 @@ TURN_CAP_RE = re.compile(r"reached maximum number of turns", re.IGNORECASE)
 # The runner words these two itself: a grader that raised, and a judged grader it skipped once the cost ceiling was hit.
 GRADER_THREW_RE = re.compile(r"^grader threw:", re.IGNORECASE)
 GRADER_SKIPPED_RE = re.compile(r"^skipped: cost ceiling", re.IGNORECASE)
+# What the runner says when a regex grader's pattern does not compile: a defect in the case that every run will meet again.
+INVALID_PATTERN_RE = re.compile(r"invalid regular expression", re.IGNORECASE)
 INFRA_PATTERNS = (
     ("model_unavailable", re.compile(r"unrecognized_model|issue with the selected model|may not exist or you may not have access", re.I)),
     ("timeout", re.compile(r"timed out|timeout", re.I)),
@@ -176,8 +176,18 @@ class Attempt:
         }
 
 
+def one_line(text: Any) -> str:
+    """Text from a result, a version or a name, on one line. A line that starts with `::` is a workflow command."""
+    return " ".join(str(text).split())
+
+
+def cell(text: Any) -> str:
+    """The same for a Markdown table cell, where a pipe starts the next cell."""
+    return one_line(text).replace("|", "\\|")
+
+
 def short(text: Any, limit: int = EXPLANATION_MAX) -> str:
-    value = " ".join(str(text or "").split())
+    value = one_line(text or "")
     return value if len(value) <= limit else value[: limit - 1] + "…"
 
 
@@ -279,20 +289,24 @@ def classify_attempt(
             attempt.warnings.append("turn_cap")
 
     static_status = (static or {}).get("status")
+    fmt = (static or {}).get("fmt")
     if static_status == "validate_failed":
         reasons.add("static_validate")
         attempt.failed_graders.append({"name": "terraform-validate", "explanation": short((static or {}).get("detail"))})
-    elif static_status == "ok" and (static or {}).get("fmt") == "diff":
-        attempt.warnings.append("fmt_diff")
+    elif static_status == "ok" and fmt in ("diff", "error"):
+        # terraform fmt only warns. `error` is a fmt that could not finish, so the formatting was not looked at.
+        attempt.warnings.append(f"fmt_{fmt}")
 
     if attempt.failed_graders:
         attempt.klass = FAIL
         attempt.reasons = order_reasons(reasons)
     elif outcomes.threw:
-        # A grader that raised could not grade. An invalid pattern is a defect in the case; anything else is the service.
-        name, explanation = outcomes.threw[0]
+        # A grader that raised could not grade. An invalid pattern is a defect in the case and every run will meet it again.
+        # Anything else is taken to be the service, as an API error in a judge call is.
+        invalid = next((item for item in outcomes.threw if INVALID_PATTERN_RE.search(item[1])), None)
+        name, explanation = invalid or outcomes.threw[0]
         attempt.klass = INFRA_ERROR
-        attempt.reasons = [infra_reason(explanation, default="grader_error")]
+        attempt.reasons = ["invalid_pattern"] if invalid else [infra_reason(explanation, default="grader_error")]
         attempt.error = f"{name}: {explanation}"
     elif outcomes.skipped or run.get("skippedPaidGraders"):
         attempt.klass = INCONCLUSIVE
@@ -302,7 +316,8 @@ def classify_attempt(
         attempt.klass = INFRA_ERROR
         attempt.reasons = ["static_infra"]
         attempt.error = short((static or {}).get("detail"))
-    elif static_status in STATIC_NOT_GRADED:
+    elif static_status not in (None, "ok"):
+        # Whatever else the grader reported, terraform validate did not look at this attempt.
         attempt.klass = INCONCLUSIVE
         attempt.reasons = ["static_unavailable"]
         attempt.error = short((static or {}).get("detail"))
@@ -348,7 +363,7 @@ class CaseResult:
 def classify_case(kind: str, attempts: list[Attempt]) -> str:
     counts = Counter(attempt.klass for attempt in attempts)
     passes, fails = counts[PASS], counts[FAIL]
-    # A guardrail is pass^k: one observed violation settles it, whatever else went wrong.
+    # A guardrail is pass^k: one failed attempt settles it, whatever happened to the others.
     if kind == "guardrail" and fails:
         return FAIL
     graded = passes + fails
@@ -477,6 +492,21 @@ def classify_live(args: argparse.Namespace, env: Mapping[str, str]) -> dict[str,
         )
         return finish(record, ERROR, problems + ["eval_unreadable"])
 
+    try:
+        return classify_aggregate(record, aggregate, suite_cases, args, problems)
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        # A result in a shape this script does not know cannot be classified, and the job must still leave a record.
+        record["warnings"].append(f"the eval result has a shape this script cannot read ({type(exc).__name__}: {exc})")
+        return finish(record, ERROR, problems + ["eval_unreadable"])
+
+
+def classify_aggregate(
+    record: dict[str, Any],
+    aggregate: Mapping[str, Any],
+    suite_cases: Mapping[str, eval_suite.Case],
+    args: argparse.Namespace,
+    problems: list[str],
+) -> dict[str, Any]:
     static_grades = read_static_grades(args.static_grades)
     summarise_aggregate(record, aggregate)
     problems.extend(check_setup(record, aggregate, suite_cases, args))
@@ -540,13 +570,10 @@ def read_aggregate(path: Path | None) -> dict[str, Any] | None:
 
 def read_static_grades(path: Path | None) -> dict[tuple[str, int], Mapping[str, Any]]:
     loaded = read_json(path)
-    if not isinstance(loaded, dict):
+    entries = loaded.get("attempts") if isinstance(loaded, dict) else None
+    if not isinstance(entries, list):
         return {}
-    return {
-        (entry["case"], entry["attempt"]): entry
-        for entry in loaded.get("attempts", [])
-        if isinstance(entry, dict) and "case" in entry and "attempt" in entry
-    }
+    return {(entry["case"], entry["attempt"]): entry for entry in entries if isinstance(entry, dict) and "case" in entry and "attempt" in entry}
 
 
 def summarise_aggregate(record: dict[str, Any], aggregate: Mapping[str, Any]) -> None:
@@ -554,7 +581,9 @@ def summarise_aggregate(record: dict[str, Any], aggregate: Mapping[str, Any]) ->
     cases = aggregate.get("cases") or []
     plugins = suite.get("plugins") or []
     record["harness"]["reported_version"] = aggregate.get("claudeVersion")
-    effective = suite.get("modelOverride") or next((case.get("model") for case in cases if case.get("model")), None)
+    # `--model` overrides the model of every case, so when it was used the override is the agent model.
+    pinned = sorted({str(case["model"]) for case in cases if case.get("model")})
+    effective = suite.get("modelOverride") or ", ".join(pinned) or None
     record["models"] = {"agent": effective, "judge": suite.get("judgeModel")}
     record["plugin"] = (
         {"name": plugins[0].get("name"), "version": plugins[0].get("version")} if plugins else None
@@ -714,6 +743,9 @@ def add_warnings(record: dict[str, Any], cases: list[CaseResult]) -> None:
         formatting = sum(1 for attempt in case.attempts if "fmt_diff" in attempt.warnings)
         if formatting:
             warnings.append(f"{case.name}: {formatting} attempt(s) were not `terraform fmt` clean")
+        unchecked = sum(1 for attempt in case.attempts if "fmt_error" in attempt.warnings)
+        if unchecked:
+            warnings.append(f"{case.name}: `terraform fmt` could not finish on {unchecked} attempt(s)")
         infra = sum(1 for attempt in case.attempts if attempt.klass == INFRA_ERROR)
         if infra:
             warnings.append(f"{case.name}: {infra} attempt(s) hit an infrastructure error")
@@ -762,6 +794,9 @@ def classify_offline(args: argparse.Namespace, env: Mapping[str, str]) -> dict[s
 def compare_records(stable: Mapping[str, Any], latest: Mapping[str, Any]) -> dict[str, Any]:
     stable_cases = {case["name"]: case["class"] for case in stable.get("cases", [])}
     latest_cases = {case["name"]: case["class"] for case in latest.get("cases", [])}
+    stable_version = (stable.get("harness") or {}).get("reported_version")
+    latest_version = (latest.get("harness") or {}).get("reported_version")
+    same_harness = bool(stable_version) and stable_version == latest_version
     rows: list[dict[str, str]] = []
     for name in sorted(set(stable_cases) | set(latest_cases)):
         before, after = stable_cases.get(name), latest_cases.get(name)
@@ -769,19 +804,18 @@ def compare_records(stable: Mapping[str, Any], latest: Mapping[str, Any]) -> dic
             label = "SKILL_REGRESSION_CANDIDATE"
         elif before == after:
             label = "NO_CHANGE"
-        elif {before, after} == {PASS, FAIL}:
+        elif {before, after} == {PASS, FAIL} and not same_harness:
             label = "HARNESS_DRIFT"
         else:
+            # The same release on both channels cannot have drifted, so a flip between them is the case's own noise.
             label = "INDETERMINATE"
         rows.append({"case": name, "stable": before or "-", "latest": after or "-", "label": label})
 
-    stable_version = (stable.get("harness") or {}).get("reported_version")
-    latest_version = (latest.get("harness") or {}).get("reported_version")
     comparable = stable.get("class") in (PASS, FAIL) and latest.get("class") in (PASS, FAIL)
     labels = {row["label"] for row in rows}
     if not comparable:
         verdict = "NOT_COMPARABLE"
-    elif stable_version and stable_version == latest_version:
+    elif same_harness:
         verdict = "SAME_HARNESS"
     elif "HARNESS_DRIFT" in labels:
         verdict = "HARNESS_DRIFT"
@@ -803,6 +837,10 @@ def compare_records(stable: Mapping[str, Any], latest: Mapping[str, Any]) -> dic
 
 
 def is_relevant(path: str) -> bool:
+    # git quotes a path with unusual characters and then starts it with a double quote. It cannot be matched
+    # against a prefix, and skipping it would let a change slip past the gate, so it counts as relevant.
+    if path.startswith('"'):
+        return True
     return any(path == entry or (entry.endswith("/") and path.startswith(entry)) for entry in RELEVANT_PATHS)
 
 
@@ -862,11 +900,11 @@ def render_markdown(record: Mapping[str, Any]) -> str:
     if record["tier"] == "offline":
         return render_offline(record)
     harness = record.get("harness") or {}
-    version = harness.get("reported_version") or harness.get("resolved_version") or "unknown"
+    version = one_line(harness.get("reported_version") or harness.get("resolved_version") or "unknown")
     lines = [
         f"### Skill eval ({record.get('suite')}) on Claude Code {version} ({harness.get('channel')})",
         "",
-        f"**Run class: {record['class']}**" + (f" ({', '.join(record['reasons'])})" if record["reasons"] else "")
+        f"**Run class: {record['class']}**" + (f" ({one_line(', '.join(record['reasons']))})" if record["reasons"] else "")
         + (f", attribution {record['attribution']}" if record.get("attribution") else ""),
         "",
     ]
@@ -876,13 +914,13 @@ def render_markdown(record: Mapping[str, Any]) -> str:
     plugin = record.get("plugin") or {}
     github = record.get("github") or {}
     lines += ["| Field | Value |", "| --- | --- |"]
-    lines.append(f"| Harness | Claude Code {version}, channel {harness.get('channel')}, dist-tags {format_tags(harness.get('dist_tags'))} |")
-    lines.append(f"| Agent model | {models.get('agent') or '-'} |")
-    lines.append(f"| Judge model | {models.get('judge') or '-'} |")
-    lines.append(f"| Plugin | {plugin.get('name', '-')} {plugin.get('version', '')} |")
-    lines.append(f"| Classification | {format_governance(record.get('tags'))} |")
+    lines.append(f"| Harness | Claude Code {cell(version)}, channel {cell(harness.get('channel'))}, dist-tags {cell(format_tags(harness.get('dist_tags')))} |")
+    lines.append(f"| Agent model | {cell(models.get('agent') or '-')} |")
+    lines.append(f"| Judge model | {cell(models.get('judge') or '-')} |")
+    lines.append(f"| Plugin | {cell(plugin.get('name', '-'))} {cell(plugin.get('version', ''))} |")
+    lines.append(f"| Classification | {cell(format_governance(record.get('tags')))} |")
     credential = "present" if record.get("credentials_present") else "absent"
-    lines.append(f"| Trigger | {github.get('event') or '-'} ({record.get('trigger_trust')}, credential {credential}) |")
+    lines.append(f"| Trigger | {cell(github.get('event') or '-')} ({record.get('trigger_trust')}, credential {credential}) |")
     if counts:
         by_class = ", ".join(f"{count} {klass}" for klass, count in sorted((counts.get("attempts_by_class") or {}).items()))
         lines.append(f"| Attempts | {counts.get('attempts')} ({by_class}) |")
@@ -898,7 +936,7 @@ def render_markdown(record: Mapping[str, Any]) -> str:
         lines += ["", "| Case | Kind | Class | Passed | Reasons |", "| --- | --- | --- | --- | --- |"]
         for case in record["cases"]:
             lines.append(
-                f"| `{case['name']}` | {case['kind']} | {case['class']} | {case['attempts_pass']}/{case['attempts_total']} | {', '.join(case['reasons']) or '-'} |"
+                f"| `{cell(case['name'])}` | {case['kind']} | {case['class']} | {case['attempts_pass']}/{case['attempts_total']} | {cell(', '.join(case['reasons']) or '-')} |"
             )
     failures = [
         (case["name"], attempt)
@@ -910,7 +948,7 @@ def render_markdown(record: Mapping[str, Any]) -> str:
         lines += ["", "**Failed attempts**", ""]
         for name, attempt in failures[:20]:
             detail = "; ".join(f"{item['name']}: {item['explanation']}" for item in attempt["failed_graders"]) or attempt["error"]
-            lines.append(f"- `{name}` attempt {attempt['index']} {attempt['class']} ({', '.join(attempt['reasons'])}): {detail}")
+            lines.append(f"- `{one_line(name)}` attempt {attempt['index']} {attempt['class']} ({one_line(', '.join(attempt['reasons']))}): {one_line(detail)}")
         if len(failures) > 20:
             lines.append(f"- … and {len(failures) - 20} more in the JSON record")
     lines += render_notes(record)
@@ -922,7 +960,7 @@ def render_offline(record: Mapping[str, Any]) -> str:
     lines = [
         "### Skill eval offline checks",
         "",
-        f"**Run class: {record['class']}**" + (f" ({', '.join(record['reasons'])})" if record["reasons"] else ""),
+        f"**Run class: {record['class']}**" + (f" ({one_line(', '.join(record['reasons']))})" if record["reasons"] else ""),
         "",
         "| Check | Outcome |",
         "| --- | --- |",
@@ -930,7 +968,7 @@ def render_offline(record: Mapping[str, Any]) -> str:
     lines += [f"| {check['name']} | {check['outcome']} |" for check in record["checks"]]
     lines += [
         "",
-        f"Classification: {format_governance(record.get('tags'))}. Live tier: {live.get('status')}"
+        f"Classification: {one_line(format_governance(record.get('tags')))}. Live tier: {live.get('status')}"
         + (f" ({live.get('reason')})" if live.get("reason") else "")
         + ".",
     ]
@@ -942,12 +980,12 @@ def render_drift(record: Mapping[str, Any]) -> str:
     lines = [
         "### Skill eval drift, stable against latest",
         "",
-        f"**Verdict: {record['verdict']}** (stable {record['stable']['version']} was {record['stable']['class']}; latest {record['latest']['version']} was {record['latest']['class']})",
+        f"**Verdict: {record['verdict']}** (stable {one_line(record['stable']['version'])} was {record['stable']['class']}; latest {one_line(record['latest']['version'])} was {record['latest']['class']})",
         "",
         "| Case | Stable | Latest | Label |",
         "| --- | --- | --- | --- |",
     ]
-    lines += [f"| `{row['case']}` | {row['stable']} | {row['latest']} | {row['label']} |" for row in record["cases"]]
+    lines += [f"| `{cell(row['case'])}` | {row['stable']} | {row['latest']} | {row['label']} |" for row in record["cases"]]
     return "\n".join(lines) + "\n"
 
 
@@ -955,7 +993,7 @@ def render_notes(record: Mapping[str, Any]) -> list[str]:
     lines: list[str] = []
     notes = list(record.get("warnings") or []) + [f"governance tag: {problem}" for problem in record.get("tag_problems") or []]
     if notes:
-        lines += ["", "**Warnings**", ""] + [f"- {note}" for note in notes]
+        lines += ["", "**Warnings**", ""] + [f"- {one_line(note)}" for note in notes]
     if record.get("limits"):
         lines += ["", "**Limits**", ""] + [f"- {limit}" for limit in record["limits"]]
     return lines
@@ -971,17 +1009,17 @@ def format_governance(tags: Mapping[str, str] | None) -> str:
 
 def report(record: Mapping[str, Any]) -> None:
     """Print a short account and GitHub annotations."""
-    reasons = f" ({', '.join(record['reasons'])})" if record.get("reasons") else ""
+    reasons = f" ({one_line(', '.join(record['reasons']))})" if record.get("reasons") else ""
     print(f"Run class: {record['class']}{reasons}")
     if record["tier"] == "live":
         for case in record["cases"]:
-            print(f"  {case['class']:<13} {case['name']} ({case['attempts_pass']}/{case['attempts_total']} attempts passed)")
+            print(f"  {case['class']:<13} {one_line(case['name'])} ({case['attempts_pass']}/{case['attempts_total']} attempts passed)")
             if case["class"] == FAIL:
                 eval_suite.annotate("error", f"{case['name']} FAIL: {', '.join(case['reasons'])}")
             elif case["class"] in (FLAKY, INCONCLUSIVE):
                 eval_suite.annotate("warning", f"{case['name']} {case['class']}: {', '.join(case['reasons']) or 'mixed results'}")
     for warning in record.get("warnings") or []:
-        print(f"  warning: {warning}")
+        print(f"  warning: {one_line(warning)}")
     if record["class"] in (FAIL, ERROR):
         eval_suite.annotate("error", f"skill eval run {record['class']}: {', '.join(record['reasons'])}")
     elif record["class"] == INCONCLUSIVE:

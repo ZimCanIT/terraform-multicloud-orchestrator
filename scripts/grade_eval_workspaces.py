@@ -4,21 +4,25 @@
 `claude plugin eval --keep-temp` leaves each attempt's working directory on disk.
 This script never runs anything inside those directories. It copies the Terraform
 files into a fresh directory and runs terraform there with a scrubbed environment:
-no API key, no cloud credential and a CLI configuration that installs providers from
-the public registry only. It writes one record per attempt for classify_eval_run.py.
+no API key, no cloud credential and a CLI configuration that installs only providers
+published by HashiCorp, Azure and Oracle on the public registry. It writes one record
+per attempt for classify_eval_run.py.
 
 Terraform loads provider plugins, and a plugin is a program that runs as the user who
 started this script. The scrubbed environment stops terraform from being handed a
 secret, but it cannot stop a plugin from reading this process's own environment, so
-the script refuses to start while ANTHROPIC_API_KEY is set. Run it from a shell or a
-job step that holds no credentials.
+the script refuses to start while one of the model credentials in SECRET_VARIABLES is
+set. That list is the credentials this repository's own tooling uses, not every secret
+there could be: run the script from a shell or a job step that holds no credentials.
 
 Status values:
   ok                 init and validate passed (`fmt` says clean, diff or error)
-  validate_failed    init or validate rejected the configuration, or the workspace is
-                     larger than the limits below
-  infra              init could not reach the registry, a command timed out or the
-                     grading deadline passed; says nothing about the configuration
+  validate_failed    init or validate rejected the configuration, the workspace is larger
+                     than the limits below, or a command printed more than MAX_SINK_BYTES
+  infra              init could not reach the registry, a command timed out, a path in
+                     the workspace could not be read or the grading deadline passed; says
+                     nothing about the configuration. A timed-out `terraform fmt` is the
+                     exception: it leaves `ok` with `fmt` set to error, because fmt only warns
   no_workspace       the kept workspace could not be found, or is reached through a symlink
   no_terraform_files the workspace holds no Terraform files
   unavailable        the terraform binary could not be run
@@ -50,11 +54,15 @@ MAX_ENTRIES = 20000
 DEFAULT_TIMEOUT = 300
 DEFAULT_DEADLINE = 1200
 DETAIL_CHARS = 600
-# Output read back from one command. A plugin that prints without end cannot fill the report or the memory.
+# Output read back from one command, which keeps the report and the memory small.
 MAX_OUTPUT_BYTES = 64 * 1024
+# Output a command may write before it is stopped. The output goes to a file, so this keeps a plugin that prints
+# without end from filling the disk. It is checked a few times a second, so the file can pass it by a little.
+MAX_SINK_BYTES = 4 * 1024 * 1024
+POLL_SECONDS = 0.25
 SKIPPED_DIRS = frozenset({".terraform", ".git"})
-# Secrets this repository's own tooling puts in an environment. The script will not run beside them.
-SECRET_VARIABLES = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
+# The model credentials this repository's own tooling puts in an environment. The script will not run beside them.
+SECRET_VARIABLES = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN")
 # The only variables passed to terraform. Everything else, including ANTHROPIC_API_KEY and any
 # cloud credential, is dropped.
 PASSED_ENV = (
@@ -72,21 +80,25 @@ PASSED_ENV = (
     "no_proxy",
     "TF_PLUGIN_CACHE_DIR",
 )
-# A configuration can name any provider source. This installs from the public registry only, so a source on another
-# host fails at init instead of being downloaded and run.
-CLI_CONFIG = """\
-provider_installation {
-  direct {
-    include = ["registry.terraform.io/*/*"]
-  }
-}
-"""
+# A configuration can name any provider source, and terraform runs the provider it installs. This installs only the
+# namespaces the skill's cloud references name, on the public registry, so a provider from another host or another
+# publisher fails at init instead of being downloaded and run. A namespace is still somebody's to publish under:
+# these three belong to HashiCorp, Microsoft's Azure organisation and Oracle.
+PROVIDER_NAMESPACES = ("hashicorp", "azure", "oracle")
+CLI_CONFIG = (
+    "provider_installation {\n"
+    "  direct {\n"
+    "    include = [" + ", ".join(f'"registry.terraform.io/{namespace}/*"' for namespace in PROVIDER_NAMESPACES) + "]\n"
+    "  }\n"
+    "}\n"
+)
 INFRA_RE = re.compile(
     r"dial tcp|no such host|connection (?:refused|reset|timed out)|tls handshake|i/o timeout|context deadline exceeded"
     r"|temporary failure in name resolution|status (?:429|5\d\d)|could not connect|network is unreachable|request failed after",
     re.IGNORECASE,
 )
 TIMED_OUT = 124
+OUTPUT_LIMIT = 125
 NOT_FOUND = 127
 
 
@@ -120,8 +132,8 @@ def reopen_parents(workspace: Path) -> None:
 def reopen(workspace: Path) -> None:
     """Reopen the modes the eval runner may have closed on what the agent wrote.
 
-    The runner's own warning gives `chmod -R u+rwX` as the way back in. Only the two
-    directories above the workspace and the workspace tree are touched, symlinks are never
+    The runner closes the modes of what the agent wrote, and `chmod -R u+rwX` opens them again. Only
+    the two directories above the workspace and the workspace tree are touched, symlinks are never
     followed, and a directory is opened before it is listed because a closed one cannot be.
     """
     reopen_parents(workspace)
@@ -144,14 +156,21 @@ def reopen(workspace: Path) -> None:
                 if entry.name not in SKIPPED_DIRS and depth < MAX_DEPTH:
                     pending.append((Path(entry.path), depth + 1))
             elif entry.is_file(follow_symlinks=False):
-                grant(Path(entry.path), 0o600)
+                # A file with another link could be the same file as one outside the workspace.
+                try:
+                    shared = entry.stat(follow_symlinks=False).st_nlink != 1
+                except OSError:
+                    continue
+                if not shared:
+                    grant(Path(entry.path), 0o600)
 
 
 @dataclass
 class Collected:
     files: list[Path] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
-    problem: str | None = None
+    problem: str | None = None  # the workspace is over a limit, which the agent caused
+    unreadable: str | None = None  # a path could not be read, which says nothing about what the agent wrote
 
 
 def collect_files(workspace: Path) -> Collected:
@@ -197,7 +216,7 @@ def collect_files(workspace: Path) -> Collected:
         if collected.problem:
             break
     if not collected.problem and unreadable:
-        collected.problem = f"{len(unreadable)} path(s) could not be read, such as {unreadable[0]}"
+        collected.unreadable = f"{len(unreadable)} path(s) could not be read, such as {unreadable[0]}"
     collected.files = sorted(collected.files[:MAX_FILES], key=Path.as_posix)
     collected.skipped.sort()
     return collected
@@ -218,7 +237,10 @@ def terraform_env(home: Path) -> dict[str, str]:
 
 
 def stop_group(pid: int) -> None:
-    """Kill every process left in the group a command started. terraform's own plugins are among them."""
+    """Kill every process left in the group a command started. terraform's own plugins are among them.
+
+    A process that starts a session of its own, as a daemon does, leaves the group and is not killed.
+    """
     try:
         os.killpg(pid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError):
@@ -229,7 +251,8 @@ def run_terraform(binary: str, args: list[str], cwd: Path, env: dict[str, str], 
     """Run one command in its own process group and return its exit code and output.
 
     Output goes to a file rather than a pipe, so a child that outlives terraform and keeps the pipe
-    open cannot hold this function up. When the command ends, or on timeout, the whole group is killed.
+    open cannot hold this function up. When the command ends, on timeout, or once it has written more
+    than MAX_SINK_BYTES, the whole group is killed. The last case returns OUTPUT_LIMIT with the start of the output.
     """
     with tempfile.TemporaryFile() as sink:
         try:
@@ -239,9 +262,7 @@ def run_terraform(binary: str, args: list[str], cwd: Path, env: dict[str, str], 
         except OSError as exc:
             return NOT_FOUND, str(exc)
         try:
-            code = process.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            code = TIMED_OUT
+            code = wait_for(process, sink, timeout)
         finally:
             stop_group(process.pid)
             process.wait()
@@ -249,6 +270,20 @@ def run_terraform(binary: str, args: list[str], cwd: Path, env: dict[str, str], 
             return code, f"timed out after {timeout:g}s"
         sink.seek(0)
         return code, sink.read(MAX_OUTPUT_BYTES).decode("utf-8", errors="replace").strip()
+
+
+def wait_for(process: subprocess.Popen[bytes], sink: Any, timeout: float) -> int:
+    """The exit code of the process, TIMED_OUT after `timeout` seconds, or OUTPUT_LIMIT when the sink outgrows MAX_SINK_BYTES."""
+    deadline = time.monotonic() + timeout
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return TIMED_OUT
+        try:
+            return process.wait(timeout=min(POLL_SECONDS, remaining))
+        except subprocess.TimeoutExpired:
+            if os.fstat(sink.fileno()).st_size > MAX_SINK_BYTES:
+                return OUTPUT_LIMIT
 
 
 def terraform_version(binary: str) -> str | None:
@@ -263,7 +298,11 @@ def terraform_version(binary: str) -> str | None:
 
 
 def detail_of(step: str, output: str) -> str:
+    """The step and what its output says, from the first `Error:` when there is one, because init prints progress lines first."""
     text = " ".join(output.split())
+    start = text.find("Error:")
+    if start > 0:
+        text = text[start:]
     return f"{step}: {text[:DETAIL_CHARS]}"
 
 
@@ -280,6 +319,8 @@ def grade_workspace(binary: str, workspace: Path, timeout: float, deadline_at: f
     if not present:
         return {"status": "no_workspace", "detail": "the kept workspace was not found; run the eval with --keep-temp"}
     collected = collect_files(workspace)
+    if collected.unreadable:
+        return {"status": "infra", "detail": f"workspace: {collected.unreadable}"}
     if not collected.files and not collected.problem:
         return {"status": "no_terraform_files", "detail": "no .tf files in the workspace"}
     record: dict[str, Any] = {"files": [path.as_posix() for path in collected.files]}
@@ -333,10 +374,22 @@ def grade_workspace(binary: str, workspace: Path, timeout: float, deadline_at: f
 
 def wants_static_grading(case: dict[str, Any]) -> bool:
     """Cases that must write Terraform: they have a file_exists grader for a .tf file."""
-    return any(
-        grader.get("type") == "file_exists" and str((grader.get("config") or {}).get("path", "")).endswith(".tf")
-        for grader in case.get("graders", [])
-    )
+    graders = case.get("graders")
+    if not isinstance(graders, list):
+        return False
+    for grader in graders:
+        config = grader.get("config") if isinstance(grader, dict) else None
+        if isinstance(grader, dict) and grader.get("type") == "file_exists" and isinstance(config, dict):
+            if str(config.get("path", "")).endswith(".tf"):
+                return True
+    return False
+
+
+def attempts_of(case: dict[str, Any]) -> list[Any]:
+    """The runs of the case in the arm with the skill, which are the attempts."""
+    arms = case.get("arms")
+    runs = arms.get("with") if isinstance(arms, dict) else None
+    return runs if isinstance(runs, list) else []
 
 
 def grade_aggregate(aggregate: dict[str, Any], binary: str, timeout: float, deadline: float | None = None) -> dict[str, Any]:
@@ -345,10 +398,10 @@ def grade_aggregate(aggregate: dict[str, Any], binary: str, timeout: float, dead
     deadline_at = None if deadline is None else time.monotonic() + deadline
     attempts: list[dict[str, Any]] = []
     for case in aggregate.get("cases", []):
-        if not wants_static_grading(case):
+        if not isinstance(case, dict) or not isinstance(case.get("name"), str) or not wants_static_grading(case):
             continue
-        for index, run in enumerate((case.get("arms") or {}).get("with") or []):
-            trace = run.get("tracePath")
+        for index, run in enumerate(attempts_of(case)):
+            trace = run.get("tracePath") if isinstance(run, dict) else None
             if version is None:
                 result = {"status": "unavailable", "detail": f"{binary} could not be run"}
             elif not trace:
@@ -375,10 +428,11 @@ def main(argv: list[str] | None = None, env: dict[str, str] | None = None) -> in
 
     held = [name for name in SECRET_VARIABLES if (os.environ if env is None else env).get(name)]
     if held:
+        unset = " ".join(f"-u {name}" for name in held)
         print(
-            f"{', '.join(held)} is set in this environment. terraform runs files the model wrote, and the programs it starts "
-            f"can read this process's environment. Unset it for this command, for example: "
-            f"env -u {held[0]} python scripts/grade_eval_workspaces.py --aggregate ... --out ..."
+            f"{', '.join(held)} {'is' if len(held) == 1 else 'are'} set in this environment. terraform runs files the model wrote, "
+            f"and the programs it starts can read this process's environment. Unset {'it' if len(held) == 1 else 'them'} for this command, "
+            f"for example: env {unset} python scripts/grade_eval_workspaces.py --aggregate ... --out ..."
         )
         return 2
 
@@ -386,6 +440,9 @@ def main(argv: list[str] | None = None, env: dict[str, str] | None = None) -> in
         aggregate = json.loads(args.aggregate.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         print(f"{args.aggregate}: cannot read the eval result ({exc})")
+        return 1
+    if not isinstance(aggregate, dict) or not isinstance(aggregate.get("cases", []), list):
+        print(f"{args.aggregate}: the eval result is not in the shape this script reads (an object with a `cases` list)")
         return 1
 
     graded = grade_aggregate(aggregate, args.terraform, args.timeout, args.deadline)

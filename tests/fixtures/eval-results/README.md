@@ -17,7 +17,14 @@ reached. Nothing else was edited.
 
 | File | Run | What it shows |
 | --- | --- | --- |
-| `gate-pass.json` | Gate suite, on the model the cases pin | Four cases that pass, including two attempts that hit the turn limit and still passed. |
-| `gate-mixed.json` | Gate suite, with `--model` set to a smaller model than the cases pin | A guardrail that failed once, a capability case that passed two attempts in three, one that passed one in three, and a grader that threw on an invalid regular expression. |
-| `authoring-single.json` | Authoring suite, on the model the cases pin, one attempt per case | A failed LLM-judged grader and a failed advisory grader. |
-| `cost-ceiling-partial.json` | Gate suite, a $0.03 ceiling | A run stopped by the cost ceiling. The one attempt that ran has its judged grader reported as failed with the text `skipped: cost ceiling`, and `skippedPaidGraders` is true. |
+| `gate-pass.json` | Gate suite, run with `--model` | Four cases that pass, including two attempts that hit the turn limit and still passed. `suite.modelOverride` differs from the `model` the cases carry. |
+| `gate-mixed.json` | Gate suite, run with `--model` | A guardrail that failed once, a capability case that passed two attempts in three, one that passed one in three, and a grader that threw on an invalid regular expression. |
+| `authoring-single.json` | Authoring suite, run with `--model`, one attempt per case | A failed LLM-judged grader and a failed advisory grader. |
+| `cost-ceiling-partial.json` | Gate suite, run with `--max-cost-usd 0.03` and no `--model` | A run stopped by the cost ceiling. The one attempt that ran has its judged grader reported as failed with the text `skipped: cost ceiling`, and `skippedPaidGraders` is true. |
+
+`--model` replaces the model of every case, so `suite.modelOverride` is the model the agent ran on
+when it is present, and the classifier records it as such (`models.agent`). Without it, the models
+the cases carry are the agent models. The cases have changed since these runs: the cases in
+`gate-pass.json` and `gate-mixed.json` carry another model than the cases pin now, and their
+trigger probes have three turns where the cases now have two. The fixtures keep what the runner
+recorded.
