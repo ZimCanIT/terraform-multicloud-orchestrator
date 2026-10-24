@@ -20,8 +20,46 @@ try:
 except ImportError:  # reported by the callers so the failure says what to install
     yaml = None
 
+if yaml is not None:
+    # The scalar types PyYAML reads by YAML 1.1 rules and the runner's parser (`Bun.YAML`) by 1.2 rules.
+    _SCALARS_READ_DIFFERENTLY = ("bool", "int", "float", "timestamp")
 
-# Keys the native loader accepts in prompt.md frontmatter (Claude Code 2.1.310).
+    class Yaml12Loader(yaml.SafeLoader):
+        """A SafeLoader that reads scalars as YAML 1.2 does, which is how `claude plugin eval` reads the frontmatter.
+
+        PyYAML follows YAML 1.1: `yes`, `no`, `on` and `off` are booleans, `010` is octal 8, and `1_000`,
+        `1:30` and `2026-10-24` are a number, a number and a date. The runner reads each of them as the text it
+        looks like, and `010` as 10, so a value like `runs: 010` would otherwise be counted differently here.
+        """
+
+    Yaml12Loader.yaml_implicit_resolvers = {
+        first: [(tag, rule) for tag, rule in resolvers if tag.rsplit(":", 1)[-1] not in _SCALARS_READ_DIFFERENTLY]
+        for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+    }
+    Yaml12Loader.add_implicit_resolver("tag:yaml.org,2002:bool", re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"), list("tTfF"))
+    Yaml12Loader.add_implicit_resolver(
+        "tag:yaml.org,2002:int", re.compile(r"^(?:[-+]?[0-9]+|0o[0-7]+|0x[0-9a-fA-F]+)$"), list("-+0123456789")
+    )
+    Yaml12Loader.add_implicit_resolver(
+        "tag:yaml.org,2002:float",
+        re.compile(r"^(?:[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$"),
+        list("-+0123456789."),
+    )
+
+    def _construct_int(loader: Any, node: Any) -> int:
+        text = loader.construct_scalar(node)
+        sign = -1 if text.startswith("-") else 1
+        digits = text.lstrip("+-")
+        if digits.startswith("0o"):
+            return sign * int(digits[2:], 8)
+        if digits.startswith("0x"):
+            return sign * int(digits[2:], 16)
+        return sign * int(digits, 10)
+
+    Yaml12Loader.add_constructor("tag:yaml.org,2002:int", _construct_int)
+
+
+# Keys the native loader accepts in prompt.md frontmatter (read from the stable release, Claude Code 2.1.308).
 # It rejects any other key, but it ignores unknown keys in case.yaml.
 NATIVE_PROMPT_KEYS = frozenset(
     {
@@ -58,7 +96,10 @@ SUITE_TAGS = ("gate", "authoring")
 KIND_TAGS = ("guardrail", "capability")
 ADVISORY_PREFIX = "advisory-"
 
-FRONTMATTER_RE = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n?---[ \t]*(?:\r?\n|\Z)", re.DOTALL)
+# The closing `---` starts a line. The runner takes the first `---` it finds, wherever it is, so a `---` that
+# ends a value would cut the frontmatter short there; reading only a line start as the closing leaves that
+# `---` inside the block, where split_frontmatter rejects it.
+FRONTMATTER_RE = re.compile(r"\A---[ \t]*\r?\n(?:(.*?)\r?\n)?---[ \t]*(?:\r?\n|\Z)", re.DOTALL)
 # `results/` holds run output and `mocks/` holds MCP mocks. Neither is a case.
 NON_CASE_DIRS = frozenset({"results", "mocks"})
 
@@ -127,7 +168,8 @@ def split_frontmatter(text: str) -> tuple[dict[str, Any] | None, str, str | None
     match = FRONTMATTER_RE.match(text)
     if match is None:
         return None, text, "no `---` frontmatter block at the top of the file"
-    if "---" in match.group(1):
+    block = match.group(1) or ""
+    if "---" in block:
         # The runner ends the frontmatter at the first `---` it finds, even inside a value, and then
         # fails to parse what is left (checked on Claude Code 2.1.308). A YAML parser would accept it.
         return None, text[match.end() :], (
@@ -135,7 +177,7 @@ def split_frontmatter(text: str) -> tuple[dict[str, Any] | None, str, str | None
             "write a run of hyphens in a regex as -{3} or -{5}"
         )
     try:
-        loaded = yaml.safe_load(match.group(1))
+        loaded = yaml.load(block, Loader=Yaml12Loader)  # noqa: S506 - a SafeLoader subclass
     except yaml.YAMLError as exc:
         return None, text[match.end() :], f"frontmatter is not valid YAML ({exc})"
     if loaded is None:

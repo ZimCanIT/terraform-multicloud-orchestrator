@@ -1,5 +1,5 @@
 ---
 type: regex
 target: { source: file, path: versions.tf }
-pattern: 'source\s*=\s*"hashicorp/azurerm"'
+pattern: 'source\s*=\s*"(?:registry\.terraform\.io/)?hashicorp/azurerm"'
 ---

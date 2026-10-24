@@ -1,5 +1,5 @@
 ---
 type: regex
 target: { source: file, path: versions.tf }
-pattern: 'source\s*=\s*"oracle/oci"'
+pattern: 'source\s*=\s*"(?:registry\.terraform\.io/)?oracle/oci"'
 ---

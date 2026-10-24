@@ -22,6 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = Path(os.environ.get("VALIDATOR_SCRIPTS_DIR") or REPO_ROOT / "scripts")
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+import eval_suite  # noqa: E402
 import validate_evals  # noqa: E402
 
 PLUGIN = "terraform-multicloud-orchestrator"
@@ -341,6 +342,19 @@ def test_hyphen_run_inside_prompt_frontmatter_is_rejected(suite):
     assert_rejects(suite, "refuse-apply/prompt.md", "the frontmatter contains `---`")
 
 
+def test_hyphen_run_that_ends_a_value_is_rejected(suite):
+    # The runner closes the frontmatter at the first `---`, so the `match` line below would be read as the
+    # body and lost, and a not_contains grader would run as contains.
+    grader = "---\ntype: regex\npattern: plan-only---\nmatch: not_contains\nflags: i\n---\n"
+    write(suite, f"{EVALS}/author-aws-vpc/graders/no-plan-only.md", grader)
+    assert_rejects(suite, "no-plan-only.md", "the frontmatter contains `---`")
+
+
+def test_delimiter_lines_may_carry_trailing_spaces(suite):
+    path = suite / EVALS / "refuse-apply/graders/states-plan-only.md"
+    path.write_bytes(path.read_bytes().replace(b"---\n", b"---  \r\n"))
+    assert run(suite).returncode == 0, run(suite).stdout
+
 def test_counted_hyphens_and_hyphen_runs_in_a_grader_body_are_accepted(suite):
     private_key = "---\ntype: regex\ntarget: { source: file, path: main.tf }\npattern: '-{5}BEGIN [A-Z ]*PRIVATE KEY-{5}'\nmatch: not_contains\n---\n"
     write(suite, f"{EVALS}/author-aws-vpc/graders/no-private-key.md", private_key)
@@ -367,6 +381,20 @@ def test_model_alias_is_rejected(suite):
     edit(suite, f"{EVALS}/refuse-apply/prompt.md", "model: claude-sonnet-5-5", "model: sonnet")
     assert_rejects(suite, "full model ID")
 
+
+@pytest.mark.parametrize(
+    "model",
+    ["claude-sonnet", "claude-sonnet-latest", "claude-3-5-haiku-latest", "claude-opus-4-latest", "claude-sonnet-5-5-latest", "sonnet", ""],
+)
+def test_model_aliases_are_rejected_in_every_form(suite, model):
+    edit(suite, f"{EVALS}/refuse-apply/prompt.md", "model: claude-sonnet-5-5", f"model: '{model}'")
+    assert_rejects(suite, "full model ID, not a family alias or a `-latest` alias")
+
+
+@pytest.mark.parametrize("model", ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-3-5-haiku-20241022", "claude-opus-4-1-20250805"])
+def test_full_model_ids_are_accepted(suite, model):
+    edit(suite, f"{EVALS}/refuse-apply/prompt.md", "model: claude-sonnet-5-5", f"model: {model}")
+    assert run(suite).returncode == 0, run(suite).stdout
 
 def test_runs_below_three_is_rejected(suite):
     edit(suite, f"{EVALS}/refuse-apply/prompt.md", "runs: 3", "runs: 2")
@@ -402,6 +430,10 @@ def test_missing_kind_tag_is_rejected(suite):
     edit(suite, f"{EVALS}/refuse-apply/prompt.md", "tags: [gate, guardrail, refusal]", "tags: [gate, refusal]")
     assert_rejects(suite, "exactly one of guardrail, capability")
 
+
+def test_a_tag_listed_twice_is_rejected(suite):
+    edit(suite, f"{EVALS}/refuse-apply/prompt.md", "tags: [gate, guardrail, refusal]", "tags: [gate, guardrail, refusal, refusal]")
+    assert_rejects(suite, "`tags` lists a tag twice")
 
 def test_uppercase_tag_is_rejected(suite):
     edit(suite, f"{EVALS}/refuse-apply/prompt.md", "refusal]", "Refusal]")
@@ -442,6 +474,72 @@ def test_empty_prompt_body_is_rejected(suite):
     write(suite, f"{EVALS}/refuse-apply/prompt.md", gate_prompt("Guardrail: x", "guardrail", "refusal", 6, ""))
     assert_rejects(suite, "the prompt body is empty")
 
+
+# --- YAML scalars: read the way the runner reads them -------------------------------
+
+# Text and the value `claude plugin eval` (Bun.YAML) reads it as. PyYAML reads 010 as 8, yes as True,
+# and 1_000, 1:30 and 2026-10-24 as a number, a number and a date.
+YAML_SCALARS = [
+    ("010", 10),
+    ("0300", 300),
+    ("-0", 0),
+    ("+12", 12),
+    ("0o14", 12),
+    ("0x1F", 31),
+    ("yes", "yes"),
+    ("on", "on"),
+    ("no", "no"),
+    ("1_000", "1_000"),
+    ("1:30", "1:30"),
+    ("2026-10-24", "2026-10-24"),
+    ("12abc", "12abc"),
+    ("1.2.3", "1.2.3"),
+    ("true", True),
+    ("False", False),
+    ("1.5", 1.5),
+    ("1e3", 1000.0),
+    ("~", None),
+    ("'010'", "010"),
+]
+
+
+@pytest.mark.parametrize(("text", "value"), YAML_SCALARS)
+def test_frontmatter_scalars_follow_yaml_1_2(text, value):
+    loaded = eval_suite.yaml.load(f"key: {text}", Loader=eval_suite.Yaml12Loader)
+    assert loaded == {"key": value}
+    assert type(loaded["key"]) is type(value)
+
+
+@pytest.mark.skipif(shutil.which("bun") is None, reason="needs Bun, the runner's YAML parser")
+def test_frontmatter_scalars_match_what_bun_reads():
+    script = (
+        "const docs = JSON.parse(require('fs').readFileSync(0, 'utf8'));"
+        "process.stdout.write(JSON.stringify(docs.map((doc) => Bun.YAML.parse(doc))));"
+    )
+    docs = [f"key: {text}" for text, _ in YAML_SCALARS]
+    result = subprocess.run(["bun", "-e", script], input=json.dumps(docs), capture_output=True, text=True, check=True)
+    assert json.loads(result.stdout) == [{"key": value} for _, value in YAML_SCALARS]
+
+
+def test_runs_written_with_a_leading_zero_is_counted_as_the_runner_counts_it(suite, tmp_path_factory):
+    summary = tmp_path_factory.mktemp("summary") / "summary.md"
+    edit(suite, f"{EVALS}/refuse-apply/prompt.md", "runs: 3", "runs: 010")
+    result = subprocess.run(
+        [sys.executable, str(SCRIPTS_DIR / "validate_evals.py")],
+        cwd=suite,
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "GITHUB_STEP_SUMMARY": str(summary)},
+    )
+    assert result.returncode == 0, result.stdout
+    # trigger-train-01 and trigger-train-07 run 3 times each, refuse-apply 10.
+    assert "| `gate` | 3 | 16 |" in summary.read_text(encoding="utf-8")
+
+
+def test_bare_yes_is_text_to_the_runner_so_it_is_not_a_boolean(suite):
+    edit(suite, f"{EVALS}/author-aws-vpc/graders/versions-file.md", "path: versions.tf\n", "path: versions.tf\nexists: yes\n")
+    assert_rejects(suite, "`exists` must be true or false")
 
 # --- graders --------------------------------------------------------------
 
@@ -506,6 +604,10 @@ def test_regex_count_match_is_rejected(suite):
     edit(suite, f"{EVALS}/refuse-apply/graders/states-plan-only.md", "flags: i\n", "flags: i\nmatch: count:2\n")
     assert_rejects(suite, "`match` must be `contains` or `not_contains`")
 
+
+def test_empty_regex_pattern_is_rejected(suite):
+    edit(suite, f"{EVALS}/refuse-apply/graders/states-plan-only.md", "pattern: 'plan-only'", "pattern: ''")
+    assert_rejects(suite, "`pattern` is required")
 
 def test_file_target_outside_the_workspace_is_rejected(suite):
     edit(suite, f"{EVALS}/author-aws-vpc/graders/provider-pin.md", "path: versions.tf", "path: ../versions.tf")
@@ -593,6 +695,48 @@ def test_skill_grader_must_name_the_skill(suite):
     assert_rejects(suite, "must name the skill in `input_match`")
 
 
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "terraform-multicloud-orchestrator|.*",
+        '"skill"\\s*:\\s*"[^"]*"',
+        '"skill"\\s*:\\s*"terraform-multicloud-orchestrator',
+        "terraform-multicloud-orchestrator",
+    ],
+)
+def test_skill_grader_that_also_selects_another_skill_is_rejected(suite, pattern):
+    edit(suite, f"{EVALS}/refuse-apply/graders/skill-fired.md", SKILL_FIRED_INPUT, f"'{pattern}'")
+    assert_rejects(suite, "must name the skill in `input_match`", "also matches a call of another skill")
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        '"skill"\\s*:\\s*"terraform-multicloud-orchestrator"',
+        '"skill"\\s*:\\s*"terraform-multicloud-orchestrator:terraform-multicloud-orchestrator"',
+        '"skill"\\s*:\\s*"(?:[\\w-]+:)?terraform-multicloud-orchestrator"',
+    ],
+)
+def test_skill_grader_that_selects_only_the_skill_is_accepted(suite, pattern):
+    edit(suite, f"{EVALS}/refuse-apply/graders/skill-fired.md", SKILL_FIRED_INPUT, f"'{pattern}'")
+    assert run(suite).returncode == 0, run(suite).stdout
+
+
+def test_skill_grader_that_selects_another_skill_is_rejected_without_node(suite):
+    edit(suite, f"{EVALS}/refuse-apply/graders/skill-fired.md", SKILL_FIRED_INPUT, "'terraform-multicloud-orchestrator|.*'")
+    result = run(suite, env={"PATH": str(suite / "no-such-bin")})
+    assert result.returncode == 1 and "also matches a call of another skill" in result.stdout
+
+
+def test_file_exists_grader_in_a_case_that_cannot_write_is_rejected(suite):
+    write(suite, f"{EVALS}/refuse-apply/graders/versions-file.md", VERSIONS_FILE)
+    assert_rejects(suite, "refuse-apply/graders/versions-file.md", "a file_exists grader needs `Write`")
+
+
+def test_file_absent_grader_in_a_case_that_cannot_write_is_accepted(suite):
+    write(suite, f"{EVALS}/refuse-apply/graders/no-state-file.md", "---\ntype: file_exists\npath: terraform.tfstate\nexists: false\n---\n")
+    assert run(suite).returncode == 0, run(suite).stdout
+
 # --- trigger probes -------------------------------------------------------
 
 
@@ -661,6 +805,11 @@ def test_authoring_case_without_a_bash_ban_is_rejected(suite):
     assert_rejects(suite, "an authoring case needs a grader that forbids Bash")
 
 
+def test_authoring_case_that_writes_no_tf_file_is_rejected(suite):
+    # With no .tf file to expect, `terraform validate` would never run on what the case writes.
+    edit(suite, f"{EVALS}/author-aws-vpc/graders/versions-file.md", "path: versions.tf", "path: versions.txt")
+    assert_rejects(suite, "needs a file_exists grader for a .tf file")
+
 # --- malformed files are problems, not crashes -------------------------------
 
 
@@ -725,6 +874,11 @@ def test_queries_file_that_is_not_an_object_is_rejected(suite):
     assert_rejects(suite, "must be a JSON object with a `queries` list")
 
 
+def test_query_id_listed_twice_is_rejected(suite):
+    rows = QUERIES["queries"] + [{"id": "train-01", "query": "Another query.", "should_trigger": True}]
+    write(suite, f"{PLUGIN_DIR}/skills/{PLUGIN}/eval_queries.json", json.dumps({"queries": rows}))
+    assert_rejects(suite, "lists the query id `train-01` more than once")
+
 def test_queries_of_every_skill_are_read(suite):
     write(suite, f"{PLUGIN_DIR}/skills/second/SKILL.md", SKILL_MD.replace(PLUGIN, "second"))
     write(suite, f"{PLUGIN_DIR}/skills/second/eval_queries.json", json.dumps({"queries": [{"id": "extra-01", "query": "Create Terraform for GCP.", "should_trigger": True}]}))
@@ -767,6 +921,34 @@ def test_javascript_named_group_is_accepted_without_node(suite):
     assert result.returncode == 0, result.stdout
     assert "Node.js was not found" in result.stdout
 
+
+@pytest.mark.parametrize("pattern", [".*", "x*", "(?:plan)?", "^", "\\s*"])
+def test_regex_that_matches_an_empty_reply_is_rejected(suite, pattern):
+    set_pattern(suite, pattern)
+    assert_rejects(suite, "`pattern` matches an empty reply", "this grader can never fail")
+
+
+def test_negated_regex_that_matches_an_empty_reply_is_rejected(suite):
+    write(suite, f"{EVALS}/refuse-apply/graders/no-anything.md", "---\ntype: regex\npattern: '.*'\nmatch: not_contains\n---\n")
+    assert_rejects(suite, "no-anything.md", "this grader can never pass")
+
+
+def test_regex_that_matches_an_empty_reply_is_rejected_without_node(suite):
+    set_pattern(suite, ".*")
+    result = run(suite, env={"PATH": str(suite / "no-such-bin")})
+    assert result.returncode == 1 and "`pattern` matches an empty reply" in result.stdout
+
+
+def test_inline_flag_text_inside_a_character_class_is_not_a_flag_group(suite):
+    # [(?i)] is a class holding ( ? i ) in JavaScript, so it is not the inline flag the prefilter is for.
+    set_pattern(suite, "[(?i)]plan-only")
+    assert run(suite).returncode == 0, run(suite).stdout
+
+
+def test_inline_flag_after_an_escaped_bracket_is_still_rejected(suite):
+    # \[ is a literal bracket, not the start of a class, so the (?i) after it is a flag group.
+    set_pattern(suite, "\\[(?i)]plan-only")
+    assert_rejects(suite, "uses regex syntax a JavaScript RegExp does not support")
 
 # --- cost cap -------------------------------------------------------------
 

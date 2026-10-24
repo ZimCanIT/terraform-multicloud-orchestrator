@@ -13,6 +13,7 @@ import json
 import re
 import shutil
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -23,9 +24,9 @@ from eval_suite import Case, Grader
 
 CASE_NAME_RE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 GRADER_NAME_RE = re.compile(r"^(?:advisory-)?[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
-# A full, versioned model ID. A family alias moves to a new model without a diff, which
-# would change what a score means.
-MODEL_RE = re.compile(r"^claude-[a-z0-9]+(?:-[a-z0-9]+)*-\d[a-z0-9-]*$")
+# A full, versioned model ID. A family alias, or a `-latest` alias, moves to a new model without a diff,
+# which would change what a score means.
+MODEL_RE = re.compile(r"^(?!.*-latest$)claude-[a-z0-9]+(?:-[a-z0-9]+)*-\d[a-z0-9-]*$")
 RUNS_RANGE = (3, 10)
 MAX_TURNS_RANGE = (1, 50)
 TIMEOUT_RANGE = (30, 1800)
@@ -53,31 +54,49 @@ PROMPT_MAX_CHARS = 4000
 ATTEMPT_CAPS = {"gate": 48, "authoring": 20}
 # What one attempt cost when the suites were measured on 24 October 2026, judge included. A suite at its cap
 # should cost about 70% of the ceiling the workflow gives it ($4 for gate, $5 for authoring), so a suite that
-# grows reaches its cap before the ceiling stops a run half way. tests/test_validate_evals.py checks the sums.
+# grows reaches its cap before the ceiling stops a run half way. tests/test_skill_evals_workflow.py checks the sums.
 MEASURED_COST_PER_ATTEMPT_USD = {"gate": 0.06, "authoring": 0.18}
 # Constructs that Python's `re` and PCRE accept but a JavaScript RegExp rejects or reads differently: inline
 # flag groups, (?P...), atomic groups, \A and \Z. A backslash that is itself escaped (\\Z) is not one of them.
 NON_JS_REGEX_RE = re.compile(r"\(\?[A-Za-z]+(?:-[A-Za-z]+)?[:)]|\(\?P[<=>]|\(\?>|(?<!\\)(?:\\\\)*\\[AZ]")
+# A character class with its content emptied. Inside [...] a `(?i)` is two brackets, a question mark and an i.
+CHARACTER_CLASS_RE = re.compile(r"\\.|\[(?:\\.|[^\]\\])*\]")
 # JavaScript names a group (?<name>...); Python's re wants (?P<name>...). Only used when Node is missing.
 JS_NAMED_GROUP_RE = re.compile(r"\(\?<([A-Za-z_][A-Za-z0-9_]*)>")
+# Each item is [pattern, flags, strings to run it on]; the answer for each is the compile error or what `test` said.
 NODE_REGEX_CHECK = (
     "const items = JSON.parse(require('fs').readFileSync(0, 'utf8'));"
-    "process.stdout.write(JSON.stringify(items.map(([pattern, flags]) => {"
-    " try { new RegExp(pattern, flags); return null; } catch (error) { return error.message; }"
+    "process.stdout.write(JSON.stringify(items.map(([pattern, flags, texts]) => {"
+    " try { const re = new RegExp(pattern, flags); return { error: null, hits: texts.map((text) => re.test(text)) }; }"
+    " catch (error) { return { error: error.message, hits: [] }; }"
     "})));"
 )
 
 
 @dataclass
+class PatternCheck:
+    """A regex to compile and, when `probes` is set, to run on those strings."""
+
+    file: str
+    key: str
+    pattern: str
+    flags: str
+    probes: list[str] = field(default_factory=list)
+    # Given whether the pattern matched each probe, returns a problem to report or None.
+    judge: Callable[[list[bool]], str | None] | None = None
+
+
+@dataclass
 class Context:
     root: Path
+    plugin_name: str
     skill_names: set[str]
     queries: dict[str, dict[str, Any]]
     # True when eval_queries.json could not be read, which is reported once rather than on every trigger case.
     queries_unreadable: bool = False
     problems: list[tuple[str, str]] = field(default_factory=list)
-    # (file, key, pattern, flags) for every regex, compiled together at the end.
-    patterns: list[tuple[str, str, str, str]] = field(default_factory=list)
+    # Every regex, compiled together at the end.
+    patterns: list[PatternCheck] = field(default_factory=list)
 
     def rel(self, path: Path) -> str:
         try:
@@ -135,7 +154,7 @@ def main() -> int:
         print(f"note: {note}")
         eval_suite.annotate("notice", note)
     total_cases = sum(count for _, _, count, _ in rows)
-    print(f"Validated {total_cases} eval case(s) in {len(suites)} suite(s).")
+    print(f"Validated {total_cases} eval case(s) in {len(suites)} evals director{'y' if len(suites) == 1 else 'ies'}.")
     return 0
 
 
@@ -165,7 +184,9 @@ def validate_suite(root: Path, evals_dir: Path) -> Context:
         skill.parent.name for skill in skills_dir.glob("*/SKILL.md")
     } if skills_dir.is_dir() else set()
     queries, query_problems = load_queries(plugin_dir, skill_names)
-    context = Context(root=root, skill_names=skill_names, queries=queries, queries_unreadable=bool(query_problems))
+    context = Context(
+        root=root, plugin_name=plugin_dir.name, skill_names=skill_names, queries=queries, queries_unreadable=bool(query_problems)
+    )
     for path, message in query_problems:
         context.add(path, message)
 
@@ -199,7 +220,10 @@ def load_queries(plugin_dir: Path, skill_names: set[str]) -> tuple[dict[str, dic
             continue
         for row in rows:
             if isinstance(row, dict) and isinstance(row.get("id"), str):
-                queries.setdefault(row["id"], row)
+                if row["id"] in queries:
+                    problems.append((path, f"lists the query id `{row['id']}` more than once, so trigger-{row['id']} would be ambiguous"))
+                    continue
+                queries[row["id"]] = row
     return queries, problems
 
 
@@ -268,7 +292,7 @@ def check_prompt_meta(context: Context, case: Case, prompt_file: Path) -> None:
 
     model = meta.get("model")
     if not isinstance(model, str) or not MODEL_RE.fullmatch(model):
-        context.add(prompt_file, "`model` must be a full model ID, not a family alias")
+        context.add(prompt_file, "`model` must be a full model ID, not a family alias or a `-latest` alias")
     check_int(context, prompt_file, meta, "runs", RUNS_RANGE)
     turns = check_int(context, prompt_file, meta, "max_turns", MAX_TURNS_RANGE)
     check_int(context, prompt_file, meta, "timeout_seconds", TIMEOUT_RANGE)
@@ -400,7 +424,8 @@ def check_regex_grader(context: Context, grader: Grader) -> None:
     if not isinstance(pattern, str) or not pattern:
         context.add(grader.path, "`pattern` is required")
     else:
-        register_pattern(context, grader.path, "pattern", pattern, flags)
+        # A pattern that matches nothing at all matches an empty reply or file, so it passes (or fails) whatever was written.
+        register_pattern(context, grader.path, "pattern", pattern, flags, [""], empty_text_judge(meta.get("match", "contains")))
     if meta.get("match", "contains") not in ("contains", "not_contains"):
         context.add(grader.path, "`match` must be `contains` or `not_contains`")
     target = meta.get("target", "last_message")
@@ -423,6 +448,9 @@ def check_tool_grader(context: Context, grader: Grader) -> None:
     if input_match is not None:
         if not isinstance(input_match, str) or not input_match:
             context.add(grader.path, "`input_match` must be a non-empty regex string")
+        elif tool == "Skill" and context.skill_names:
+            probes, judge = skill_probes(context)
+            register_pattern(context, grader.path, "input_match", input_match, "", probes, judge)
         else:
             register_pattern(context, grader.path, "input_match", input_match, "")
     bounds_ok = True
@@ -458,25 +486,76 @@ def check_llm_grader(context: Context, grader: Grader) -> None:
         context.add(grader.path, "the judge criteria need a line starting `PASS if` and a line starting `FAIL if`")
 
 
-def register_pattern(context: Context, path: Path, key: str, pattern: str, flags: str) -> None:
-    if NON_JS_REGEX_RE.search(pattern):
+def without_character_classes(pattern: str) -> str:
+    """The pattern with the content of each [...] class dropped, so syntax that is special only outside one is not mistaken."""
+    return CHARACTER_CLASS_RE.sub(lambda found: found.group(0) if found.group(0).startswith("\\") else "[]", pattern)
+
+
+def register_pattern(
+    context: Context,
+    path: Path,
+    key: str,
+    pattern: str,
+    flags: str,
+    probes: list[str] | None = None,
+    judge: Callable[[list[bool]], str | None] | None = None,
+) -> None:
+    if NON_JS_REGEX_RE.search(without_character_classes(pattern)):
         context.add(
             path,
             f"`{key}` uses regex syntax a JavaScript RegExp does not support "
             "(an inline flag group such as (?i), (?P<name>), an atomic group, \\A or \\Z); use `flags: i` for case-insensitive",
         )
         return
-    context.patterns.append((context.rel(path), key, pattern, flags))
+    context.patterns.append(PatternCheck(context.rel(path), key, pattern, flags, probes or [], judge))
+
+
+def empty_text_judge(match: Any) -> Callable[[list[bool]], str | None]:
+    """The judge for the probe "": a regex that matches it matches every reply and every file."""
+
+    def judge(hits: list[bool]) -> str | None:
+        if not hits or not hits[0]:
+            return None
+        outcome = "never pass" if match == "not_contains" else "never fail"
+        return f"`pattern` matches an empty reply, so it matches every reply and this grader can {outcome}"
+
+    return judge
+
+
+def skill_probes(context: Context) -> tuple[list[str], Callable[[list[bool]], str | None]]:
+    """Tool inputs a Skill grader is run on: calls of the plugin's skills, which it must match, and of other skills, which it must not."""
+    names = sorted(context.skill_names)
+    ours = [json.dumps({"skill": name}, separators=(",", ":")) for name in names]
+    ours += [json.dumps({"skill": f"{context.plugin_name}:{name}"}, separators=(",", ":")) for name in names]
+    others = [json.dumps({"skill": other}, separators=(",", ":")) for other in ["zz-other-skill", *(f"{name}-v2" for name in names)]]
+
+    def judge(hits: list[bool]) -> str | None:
+        if not any(hits[: len(ours)]):
+            return f"a Skill grader must name the skill in `input_match`: it does not match a call of {', '.join(names)}"
+        if any(hits[len(ours) :]):
+            return "a Skill grader must name the skill in `input_match`: it also matches a call of another skill, so any skill would satisfy it"
+        return None
+
+    return ours + others, judge
+
+
+def regex_outcome(check: PatternCheck) -> tuple[str | None, list[bool]]:
+    """The compile error, or what the pattern did on each probe, by Python's re module. Used when Node is missing."""
+    try:
+        compiled = re.compile(JS_NAMED_GROUP_RE.sub(r"(?P<\1>", check.pattern), re.IGNORECASE if "i" in check.flags else 0)
+    except re.error as exc:
+        return str(exc), []
+    return None, [compiled.search(probe) is not None for probe in check.probes]
 
 
 def check_regexes(context: Context) -> None:
-    """Compile every pattern with Node's RegExp, the engine the eval runner uses."""
+    """Compile every pattern with Node's RegExp and run it on its probes. The eval runner is another JavaScript engine, and both follow the syntax these patterns use."""
     if not context.patterns:
         return
-    errors: list[str | None] | None = None
+    outcomes: list[tuple[str | None, list[bool]]] | None = None
     node = shutil.which("node")
     if node is not None:
-        payload = json.dumps([[pattern, flags] for _, _, pattern, flags in context.patterns])
+        payload = json.dumps([[check.pattern, check.flags, check.probes] for check in context.patterns])
         try:
             result = subprocess.run(
                 [node, "-e", NODE_REGEX_CHECK],
@@ -487,21 +566,19 @@ def check_regexes(context: Context) -> None:
                 timeout=60,
             )
             if result.returncode == 0:
-                errors = json.loads(result.stdout)
-        except (OSError, ValueError, subprocess.TimeoutExpired):
-            errors = None
-    if errors is None:
+                outcomes = [(item["error"], item["hits"]) for item in json.loads(result.stdout)]
+        except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired):
+            outcomes = None
+    if outcomes is None:
         # No Node: Python's re module catches unbalanced groups and bad escapes.
-        errors = []
-        for _, _, pattern, _ in context.patterns:
-            try:
-                re.compile(JS_NAMED_GROUP_RE.sub(r"(?P<\1>", pattern))
-                errors.append(None)
-            except re.error as exc:
-                errors.append(str(exc))
-    for (file, key, pattern, _), error in zip(context.patterns, errors):
+        outcomes = [regex_outcome(check) for check in context.patterns]
+    for check, (error, hits) in zip(context.patterns, outcomes):
         if error:
-            context.problems.append((file, f"`{key}` is not a valid regex: {error}"))
+            context.problems.append((check.file, f"`{check.key}` is not a valid regex: {error}"))
+        elif check.judge is not None:
+            problem = check.judge(hits)
+            if problem:
+                context.problems.append((check.file, problem))
 
 
 def is_forbidden_call(grader: Grader) -> bool:
@@ -535,9 +612,15 @@ def check_grader_set(context: Context, case: Case) -> None:
 
     skill_graders = [grader for grader in graders if is_skill_grader(grader)]
     for grader in skill_graders:
-        match = grader.meta.get("input_match")
-        if not isinstance(match, str) or not any(name in match for name in context.skill_names):
+        # What a pattern selects is checked against sample calls when the patterns are compiled; here it must exist.
+        if not isinstance(grader.meta.get("input_match"), str) or not context.skill_names:
             context.add(grader.path, "a Skill grader must name the skill in `input_match`, or any skill would satisfy it")
+
+    allowed = case.meta.get("allowed_tools")
+    can_write = isinstance(allowed, list) and "Write" in allowed
+    for grader in graders:
+        if grader.type == "file_exists" and grader.meta.get("exists", True) is True and not can_write:
+            context.add(grader.path, "a file_exists grader needs `Write` in the case's `allowed_tools`, or no tool the run may use can create the file")
 
     if "trigger" in case.tags:
         check_trigger_case(context, case, graders, skill_graders)
@@ -597,6 +680,8 @@ def check_authoring_case(context: Context, case: Case, graders: list[Grader]) ->
     }
     if not created:
         context.add(graders_dir, "an authoring case needs a file_exists grader for each file it must write")
+    elif not any(path.endswith(".tf") for path in created):
+        context.add(graders_dir, "an authoring case needs a file_exists grader for a .tf file, or `terraform validate` never runs on what it wrote")
     # A malformed target is reported by check_regex_grader; only a mapping with a string path says which file is read.
     file_targets = {
         grader.meta["target"]["path"]: grader
