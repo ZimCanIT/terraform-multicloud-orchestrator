@@ -42,7 +42,8 @@ resource "azurerm_storage_account" "this" {
 }
 ```
 
-- With shared keys off, the provider needs `storage_use_azuread = true` and the deploying identity needs a data-plane role such as Storage Blob Data Contributor. The Files API still uses the shared key, so file shares need a different plan.
+- With shared keys off, the provider needs `storage_use_azuread = true`, which covers the Blob and Queue data planes, and the deploying identity needs a data-plane role such as Storage Blob Data Contributor. `azurerm_storage_container` takes `storage_account_id` and is created through the management plane; check the page of any other storage resource for the plane it uses.
+- With public network access off, the machine that runs Terraform needs a private path to the account for any data-plane call. The provider's `storage` feature has a `data_plane_available` switch: on a runner with no private path, set `features { storage { data_plane_available = false } }` in the root and say so in the hand-off.
 - Use either the inline `network_rules` block or `azurerm_storage_account_network_rules`, never both.
 - Reach the account through private endpoints, one per service in use (`networking.md`).
 - Log categories are on the service, not the account: target `"${azurerm_storage_account.this.id}/blobServices/default"` in the diagnostic setting.
@@ -71,7 +72,7 @@ resource "azurerm_key_vault" "this" {
 }
 ```
 
-- Purge protection cannot be turned off, and the retention period cannot be changed after creation. A deleted vault keeps its name reserved until it is purged, so a recreate under the same name fails.
+- Purge protection cannot be turned off, and the retention period cannot be changed after creation. A deleted vault keeps its name reserved until it is purged, and purge protection blocks purging for the retention period. With the provider's `recover_soft_deleted_key_vaults` feature on, creating a vault of the same name brings the deleted vault back with its old contents instead of making a new one.
 - Grant access with roles, not access policies: Key Vault Secrets User to read secrets, Key Vault Secrets Officer to manage them, Key Vault Crypto Service Encryption User for customer-managed keys.
 - Write secrets with `value_wo` and `value_wo_version` so that the value stays out of state (`identity-and-secrets.md`).
 
@@ -275,4 +276,8 @@ Categories differ by resource type. Read them from the resource's documentation 
 
 ## Locks (AZ5)
 
-Use `azurerm_management_lock` with `lock_level = "CanNotDelete"` on resources whose deletion is an incident: the state storage account, hub networking, production data stores. Avoid `ReadOnly`: it blocks operations that are reads in name only, such as listing storage keys. A lock also blocks `terraform destroy` of everything under its scope, which is the point; say so in the hand-off.
+Use `azurerm_management_lock` with `lock_level = "CanNotDelete"` on resources whose deletion is an incident: the state storage account, hub networking, production data stores. Avoid `ReadOnly`: it blocks operations that are reads in name only, such as listing storage keys.
+
+A lock stops deletion from outside Terraform: the portal, the CLI, another pipeline. It does not stop the run that manages it. On `destroy` or a replacement, Terraform removes the lock first, because the lock depends on the resource. To stop Terraform itself use `prevent_destroy` (HC5), or keep the lock in a separate stack that the workload pipeline cannot run. Say in the hand-off which protection applies.
+
+Creating and deleting locks needs `Microsoft.Authorization/locks/*`, which Contributor and Role Based Access Control Administrator do not carry. Give the apply identity a custom role with those actions, or let the platform stack own the locks.

@@ -22,7 +22,7 @@ variable "location" {
 }
 
 variable "account_replication_type" {
-  description = "Replication for the account."
+  description = "Replication for the account. Changing between a zonal and a non-zonal type can replace the account."
   type        = string
   default     = "ZRS"
   nullable    = false
@@ -49,7 +49,7 @@ variable "private_endpoint" {
 }
 
 variable "lock_enabled" {
-  description = "Whether a CanNotDelete lock protects the account. Turn it off only for environments that are torn down."
+  description = "Whether a CanNotDelete lock guards the account against deletion from outside Terraform, such as the portal or another pipeline."
   type        = bool
   default     = true
   nullable    = false

@@ -31,6 +31,12 @@ resource "azurerm_storage_account" "this" {
   }
 
   tags = var.tags
+
+  lifecycle {
+    # The account holds data, so Terraform must not destroy or replace it. A module that also has to
+    # serve environments that are torn down would leave this out and say so in its README.
+    prevent_destroy = true
+  }
 }
 
 resource "azurerm_private_endpoint" "blob" {
@@ -71,6 +77,8 @@ resource "azurerm_monitor_diagnostic_setting" "blob" {
   }
 }
 
+# Guards against deletion from outside Terraform. The run that manages a lock removes it first, so it is
+# no substitute for prevent_destroy above.
 resource "azurerm_management_lock" "this" {
   count = var.lock_enabled ? 1 : 0
 

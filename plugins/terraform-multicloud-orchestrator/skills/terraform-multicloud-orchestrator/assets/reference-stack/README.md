@@ -13,7 +13,8 @@ CI runs `terraform init -backend=false`, `terraform validate` and `terraform fmt
 | `variables.tf` | MD3, MD4 | Typed inputs with descriptions and validation; an optional feature as an object that may be null |
 | `locals.tf` | HC2, HC3, AZ7 | Names and tags built once; mandatory tags cannot be overridden |
 | `main.tf` | MD2, AZ1 | The stack creates the resource group and the identity, passes IDs down, and grants the role itself |
-| `modules/storage_account/main.tf` | AZ1, AZ3, AZ4, AZ5, AZ6 | Shared keys off, public access off, TLS floor, soft delete and versioning, a lock, logs to Log Analytics; a private endpoint when the caller supplies a subnet |
+| `modules/storage_account/main.tf` | AZ1, AZ3, AZ4, AZ5, AZ6 | Shared keys off, public access off, TLS floor, soft delete and versioning, logs to Log Analytics; a private endpoint when the caller supplies a subnet |
+| `modules/storage_account/main.tf` | HC5 | `prevent_destroy` on the account, so Terraform cannot destroy or replace it; a lock as the separate guard against deletion from outside Terraform |
 | `modules/storage_account/main.tf` | HC1 | `count` only as a zero-or-one switch |
 | `modules/storage_account/outputs.tf`, `outputs.tf` | MD5 | IDs, names and an endpoint; no keys |
 | `modules/storage_account/tests/` | MD4 | Tests in plan mode with a mocked provider: the secure defaults, the optional endpoint, the name validation |

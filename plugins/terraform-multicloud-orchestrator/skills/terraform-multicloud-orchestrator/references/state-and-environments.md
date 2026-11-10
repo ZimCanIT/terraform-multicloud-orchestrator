@@ -18,8 +18,8 @@ terraform {
 ```hcl
 # environments/prod.backend.hcl
 storage_account_name = "sttfstateproduks001"
-container_name       = "tfstate"
-key                  = "network.tfstate"
+container_name       = "network-prod"
+key                  = "terraform.tfstate"
 ```
 
 The user initialises with `terraform init -backend-config=environments/prod.backend.hcl`. That is not one of the agent's permitted `init` forms (`SKILL.md` §2), so ask the user to run it.
@@ -53,7 +53,7 @@ One state is one unit of failure, of locking and of permission. Typical layout:
 | Workload, per environment | application resources, their identities and role assignments | daily |
 | Workload data, per environment | databases and storage that outlive deployments | rarely |
 
-Use one container per environment and one key per stack, for example container `prod`, key `connectivity.tfstate`.
+Use one container per stack and environment, for example container `connectivity-prod`, key `terraform.tfstate`. A role assignment cannot be scoped below a container without a condition, so stacks that share a container can read each other's state.
 
 Signs that a state should be split: a plan for an application change lists network or database resources; teams wait for each other's lock; a plan takes minutes; the pipeline identity needs broad rights only because of a few resources in the state. Split with `removed` and `import` blocks (`adopt-and-refactor.md`).
 

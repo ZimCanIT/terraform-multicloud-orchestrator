@@ -42,7 +42,7 @@ variable "environment" {
 - Give a default only when it is safe in every environment. A region, an address space and a name have no default.
 - Set `nullable = false` unless null means something, as it does for an optional feature object (see `module-design.md`).
 - Name booleans `<thing>_enabled`. Avoid negatives such as `disable_x`.
-- Mark secrets `sensitive = true`. On Terraform 1.10 or later, add `ephemeral = true` to an input that must never reach state or a plan file, and pass it only to write-only arguments.
+- Mark secrets `sensitive = true`. On Terraform 1.10 or later, add `ephemeral = true` to an input that must never reach state or a plan file. An ephemeral value can be used only in ephemeral contexts: a write-only argument (Terraform 1.11 or later), a provider block or an `ephemeral` block.
 - Validate what Azure would otherwise reject late: name patterns and lengths, CIDR ranges, SKU names, allowed regions. A validation may refer to other variables on Terraform 1.9 or later.
 - Do not use `any`, and do not hide a missing required key with `lookup(map, key, default)` or `try()`. Use `try()` only for structure that is truly optional; prefer `optional()` in the type.
 
@@ -87,7 +87,7 @@ resource "azurerm_management_lock" "this" {
 ```
 
 - `count = length(var.names)` indexes by position, so removing one element renumbers and replaces every later one. Use a map.
-- Keys must be known at plan time. `for_each = toset(azurerm_subnet.this[*].id)` fails with "known only after apply"; key by the input instead and read the ID from `each.value`.
+- Keys must be known at plan time. `for_each = toset([for subnet in azurerm_subnet.this : subnet.id])` fails with "Invalid for_each argument", because the IDs are known only after apply. Use `for_each = azurerm_subnet.this`, whose keys are the input keys, and read `each.value.id`.
 - Turn a list of objects into a map with a stable unique key: `{ for rule in var.rules : rule.name => rule }`.
 - For nested collections, `flatten` into a list of objects in `locals`, then build a map with a composite key such as `"${vnet_key}/${subnet_key}"`.
 
@@ -139,7 +139,7 @@ check "key_vault_private" {
 }
 ```
 
-- `prevent_destroy` takes a literal, so a shared module cannot switch it per environment. Put it in roots and modules that are never torn down. Where the same module also serves disposable environments, protect production with a management lock behind a variable instead.
+- `prevent_destroy` takes a literal, so a shared module cannot switch it per environment. Put it in roots and modules that are never torn down. A module that must also serve disposable environments leaves it out, and the hand-off says so. A management lock is not a substitute: a lock in the same configuration is removed by the same run, so it guards only against deletion from outside Terraform.
 - `precondition` and `postcondition` stop the run. A `check` block only warns, which suits conditions you want to see after apply without blocking it.
 - `ignore_changes = all` is never acceptable. List attributes, and say in a comment who else changes them.
 - Use `create_before_destroy = true` where a replacement would otherwise cause an outage and the name allows two copies to exist at once.

@@ -70,6 +70,8 @@ This table is not complete. The rule is AZ8: read the page for the pinned versio
 Use `azapi` when `azurerm` at the pinned version cannot express a resource type or a property, typically a preview feature. Do not use it by default, and never shell out to `az` instead.
 
 ```hcl
+# Shape only: azurerm_container_app_environment already manages this type. Use azapi only for a
+# type or property that the pinned azurerm lacks, and name that gap in a comment like this one.
 resource "azapi_resource" "container_environment" {
   type      = "Microsoft.App/managedEnvironments@2024-03-01"
   name      = local.names.container_environment
@@ -79,6 +81,9 @@ resource "azapi_resource" "container_environment" {
   body = {
     properties = {
       zoneRedundant = true
+      vnetConfiguration = {
+        infrastructureSubnetId = var.infrastructure_subnet_id
+      }
     }
   }
 
@@ -97,10 +102,10 @@ A replacement is a delete followed by a create. For anything that holds data or 
 - **Almost every resource:** `name`, `location` and `resource_group_name`. A rename or a move is a replacement.
 - **`azurerm_subnet`:** `name` and `virtual_network_name`.
 - **Virtual machines:** `name`, `zone`, the SSH key, `secure_boot_enabled`, `vtpm_enabled`, and OS disk and image changes.
-- **`azurerm_storage_account`:** `infrastructure_encryption_enabled`, and some changes to `account_kind` and the hierarchical namespace.
-- **`azurerm_key_vault`:** `name`. A deleted vault's name stays reserved until the vault is purged.
+- **`azurerm_storage_account`:** `infrastructure_encryption_enabled`, `is_hns_enabled`, `nfsv3_enabled`, some changes to `account_kind`, and `account_replication_type` when it crosses between non-zonal (`LRS`, `GRS`, `RAGRS`) and zonal (`ZRS`, `GZRS`, `RAGZRS`) types. The pairs `LRS`/`ZRS`, `GRS`/`GZRS` and `RAGRS`/`RAGZRS` convert in place, through a migration that can take days.
+- **`azurerm_key_vault`:** `name`. A deleted vault's name stays reserved until the vault is purged, and creating a vault of the same name can recover the deleted one (`secure-baseline.md`).
 - **`azurerm_container_registry`:** `zone_redundancy_enabled`.
-- **`azurerm_kubernetes_cluster`:** `private_cluster_enabled`; turning the OIDC issuer off; changing availability zones or `network_data_plane` (the in-place move from `azure` to `cilium` is the exception); default node pool properties when `temporary_name_for_rotation` is not set.
+- **`azurerm_kubernetes_cluster`:** `private_cluster_enabled`; turning the OIDC issuer off; changing `network_data_plane` (the in-place move from `azure` to `cilium` is the exception). Changes to the default node pool's `vm_size`, `zones`, `vnet_subnet_id` and the other properties its page lists are rolled through a temporary pool and need `temporary_name_for_rotation` (`secure-baseline.md`).
 - **`azurerm_postgresql_flexible_server`:** lowering the version or `storage_mb`. `zone` changes after a failover, so ignore it (`secure-baseline.md`).
 - **`azurerm_role_assignment`:** the scope, the principal, the role and `principal_type`. Cheap to recreate, but access is lost for a moment.
 - **Policy set definitions:** removing a parameter.

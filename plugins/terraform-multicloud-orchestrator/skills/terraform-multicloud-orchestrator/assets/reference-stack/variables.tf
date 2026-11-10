@@ -55,7 +55,7 @@ variable "instance" {
 }
 
 variable "storage_replication_type" {
-  description = "Replication for the workload storage account."
+  description = "Replication for the workload storage account. Changing between a zonal and a non-zonal type can replace the account."
   type        = string
   default     = "ZRS"
   nullable    = false

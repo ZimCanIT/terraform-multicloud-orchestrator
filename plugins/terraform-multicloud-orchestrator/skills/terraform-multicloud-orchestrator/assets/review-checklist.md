@@ -11,7 +11,7 @@ Stop and fix, or report first.
 - [ ] Nothing is public that the request did not ask to be public: public network access, public IPs, ports 22 and 3389, anonymous blob access, registry admin user or anonymous pull (AZ3).
 - [ ] No resource on the stop list is deleted or replaced without the user's confirmation (`references/azurerm-provider.md`).
 - [ ] No resource address changed without a `moved` block (HC4).
-- [ ] No `apply`, `destroy`, `import` or state command was run or proposed for pre-approval (`SKILL.md` §2).
+- [ ] No `apply`, `destroy`, `import` or state-changing command (`state mv`, `state rm`, `state push`, `force-unlock`) was run or proposed for pre-approval. `state list` is the only state subcommand permitted (`SKILL.md` §2).
 
 ## Structure and modules
 
@@ -29,7 +29,7 @@ Stop and fix, or report first.
 - [ ] Plural resources use `for_each` over a map whose keys are known at plan time; `count` appears only as a zero-or-one switch (HC1).
 - [ ] No literal subscription, tenant or object ID, region, SKU, address range or name inside a resource (HC2).
 - [ ] Names and tags are built once in `locals` (HC3).
-- [ ] Data-holding resources have `prevent_destroy` or a management lock; every `ignore_changes` is narrow and commented (HC5).
+- [ ] Data-holding resources have `prevent_destroy`, or the hand-off says that nothing stops Terraform from destroying them. A lock in the same configuration does not count. Every `ignore_changes` is narrow and commented (HC5).
 - [ ] No provisioner, `null_resource` or `local-exec` calling `az` (HC6).
 - [ ] Every `depends_on` covers a dependency Terraform cannot see and says why (HC7).
 - [ ] Standard files, `snake_case`, `this` for the primary resource, block order, formatted, `terraform.tfvars.example` instead of `terraform.tfvars` (HC8).

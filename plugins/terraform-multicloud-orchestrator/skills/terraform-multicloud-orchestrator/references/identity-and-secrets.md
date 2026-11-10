@@ -54,7 +54,7 @@ For a workload in AKS, use `azurerm_federated_identity_credential` with the clus
 - Key `for_each` by a static name (`reader`, `app`), never by a principal ID, which is unknown until apply (HC1).
 - The module that owns a resource outputs its `id` and its identity's `principal_id`. The caller, which sees both sides, creates the assignment (`module-design.md`).
 - Assignments take time to take effect. A data-plane call straight afterwards can fail with 403. Add `depends_on` so that the order is right (HC7); add a delay only if the failure repeats.
-- The identity that applies the code needs `Microsoft.Authorization/roleAssignments/write`. Give it Role Based Access Control Administrator with a condition that limits which roles it may assign, not Owner or User Access Administrator.
+- The identity that applies the code needs `Microsoft.Authorization/roleAssignments/write`. Give it Role Based Access Control Administrator with a condition that limits which roles it may assign, not Owner or User Access Administrator. Management locks need `Microsoft.Authorization/locks/*`, which that role and Contributor do not carry: add a custom role with those actions, or let the platform stack own the locks.
 - An assignment that already exists fails with a conflict. Import it; do not create a duplicate under another name.
 
 ## Secrets, in order of preference

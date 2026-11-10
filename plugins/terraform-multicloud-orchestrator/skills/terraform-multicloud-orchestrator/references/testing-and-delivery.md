@@ -30,10 +30,11 @@ A scanner finding is fixed in code. A skip is a decision: write it inline with t
 mock_provider "azurerm" {}
 
 variables {
-  name                     = "stordersdevuks001"
-  resource_group_name      = "rg-orders-dev-uks-001"
-  location                 = "uksouth"
-  account_replication_type = "ZRS"
+  name                       = "stordersdevuks001"
+  resource_group_name        = "rg-orders-dev-uks-001"
+  location                   = "uksouth"
+  account_replication_type   = "ZRS"
+  log_analytics_workspace_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-logging-prod-uks-001/providers/Microsoft.OperationalInsights/workspaces/log-platform-prod-uks-001"
 }
 
 run "secure_defaults" {
