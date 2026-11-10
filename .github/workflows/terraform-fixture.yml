@@ -134,6 +134,12 @@ jobs:
           if ! terraform test -no-color > "${RUNNER_TEMP}/test.out" 2>&1; then
             failed=1
             annotate "terraform test failed on the reference module" "${RUNNER_TEMP}/test.out"
+          elif ! grep -Eq '^Success! [1-9][0-9]* passed, 0 failed' "${RUNNER_TEMP}/test.out"; then
+            # An empty test directory also exits 0, so require at least one passing run.
+            failed=1
+            annotate "terraform test ran no tests on the reference module" "${RUNNER_TEMP}/test.out"
+          else
+            echo "::notice title=Reference module tests::$(grep -E '^Success!' "${RUNNER_TEMP}/test.out")"
           fi
           cat "${RUNNER_TEMP}/test.out"
 
