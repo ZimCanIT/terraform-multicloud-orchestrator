@@ -82,6 +82,16 @@ Run from a Terraform root directory. `--static` runs the checks that need no sta
 bash /path/to/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/validate.sh --static
 ```
 
+## Reference stack
+
+`plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/assets/reference-stack/` is real Terraform that the skill points to as its worked example. The `reference-stack` job in `.github/workflows/terraform-fixture.yml` copies it to a scratch directory and runs `terraform init -backend=false`, `terraform validate` and `terraform fmt -check -recursive` against the provider version it pins. It is never planned or applied. When you change an argument in a reference file, make the same change in the stack so that CI checks it.
+
+To run the same checks locally, from a copy of that directory:
+
+```bash
+bash /path/to/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/validate.sh --static
+```
+
 ## Conventional Commits
 
 Commit and PR titles use a type: feat, fix, docs, ci, chore, test or refactor. release-please reads them to choose the next version. While the version is below 1.0:
@@ -94,6 +104,6 @@ Commit and PR titles use a type: feat, fix, docs, ci, chore, test or refactor. r
 
 Protect `main` with these settings. The repository owner applies them in the GitHub settings; this repository does not change them.
 
-- Require the `pre-commit` and `agentskills-validate` status checks.
+- Require the `pre-commit`, `agentskills-validate`, `terraform-fixture` and `reference-stack` status checks.
 - Require pull requests before merging.
 - Allow squash merges only.
