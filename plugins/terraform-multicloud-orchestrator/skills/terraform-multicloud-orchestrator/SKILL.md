@@ -95,7 +95,16 @@ Every rule has an ID so that a review can cite it. The reference files hold the 
 ## 4. Workflow
 
 1. **Discover** (§1). Note the provider version in the lock file; that version, not the newest, is the one the code must satisfy.
-2. **Design in a few lines before any HCL**, for anything larger than a small edit: which root and state the change belongs to (ST2); the module boundary and its inputs and outputs (MD1 to MD5); which existing resources must not be replaced; which references you loaded. Share the note when it contains a decision the user should see.
+2. **Design in a few lines before any HCL**, for anything larger than a small edit: which root and state the change belongs to (ST2); the module boundary and its inputs and outputs (MD1 to MD5); which existing resources must not be replaced; which references you loaded. Share the note when it contains a decision the user should see. For example:
+
+   ```text
+   Design: blob storage for the orders workload, production.
+   - Stack and state: the orders workload stack, not the network stack (ST2).
+   - Module: storage_account. Inputs: name, resource group, location, log workspace ID, endpoint subnet ID, DNS zone IDs.
+     Outputs: id, name, blob endpoint (MD2, MD5).
+   - Must not be replaced: nothing exists yet. Infrastructure encryption is set now, because changing it later replaces the account.
+   - Loaded: references/secure-baseline.md, references/networking.md.
+   ```
 3. **Check the schema** (AZ8). Open the registry page for each resource type you are not certain of, at the pinned version. After a major upgrade, treat every remembered argument as unverified.
 4. **Write the code** to §3. When the user asked for an implementation, write the files; when they asked for a design or a review, show the code in the reply.
 5. **Review your own output** against `assets/review-checklist.md` before you show it. Fix what fails. Anything you could not satisfy goes in the hand-off with the reason.
@@ -146,6 +155,14 @@ Load a reference only when the task needs it. For a small edit to existing code,
 ## 6. Reviewing existing code
 
 When asked to review Terraform for Azure, do not rewrite it. Report findings, most severe first. Each finding gives the rule ID from §3, the file and line, what goes wrong on Azure because of it, and the fix as a small diff. Use three levels: **blocker** (data loss, a secret exposed, public exposure, shared production state), **major** (breaks ST, MD or AZ rules in a way that will cost later) and **minor** (style and consistency). Finish with what the code already does well and the one change you would make first. `assets/review-checklist.md` is the list to walk.
+
+A finding looks like this:
+
+```text
+major | AZ1, MD5 | modules/storage/outputs.tf:12
+The module outputs the account's access key. Every caller's state then holds the key, and shared-key access has to stay on.
+Fix: remove the output, turn shared-key access off, and grant each caller a data role scoped to the account ID.
+```
 
 ---
 

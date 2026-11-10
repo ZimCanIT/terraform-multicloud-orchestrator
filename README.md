@@ -65,6 +65,13 @@ Otherwise, copy that folder into the agent's skills directory. For Claude Code, 
 - **Plan-only.** It runs only the exact permitted forms: `init`, `validate`, `fmt -check -recursive`, `plan -out=tfplan`, `show -json tfplan`, `providers` and `state list`. Reading plan JSON with `jq` needs your approval. A planned deletion or replacement of a resource on its stop list makes it stop and ask.
 - **Automatic.** It triggers when a request matches its description.
 
+## Try it
+
+- "Add a private storage account for the orders workload in UK South, with diagnostics."
+- "Review `modules/network` against your standard. Blockers first."
+- "Bring the resources in `rg-legacy-prod` under Terraform without replacing anything."
+- "Upgrade this stack from azurerm 4 to 5."
+
 ## Safety
 
 `apply` and `destroy` are restricted, and so is every other `terraform` or `tofu` subcommand that is not on the permitted list.

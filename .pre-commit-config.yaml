@@ -52,7 +52,7 @@ repos:
         additional_dependencies:
           - markdownlint-cli2@0.22.1
         entry: markdownlint-cli2
-        files: "^(README|CHANGELOG|CONTRIBUTING)\\.md$|^examples/.*\\.md$|^plugins/.*\\.md$"
+        files: "^(README|CHANGELOG|CONTRIBUTING)\\.md$|^plugins/.*\\.md$"
         types: [markdown]
 
       - id: validate-codex-plugin
