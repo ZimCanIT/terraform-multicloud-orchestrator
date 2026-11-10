@@ -31,6 +31,7 @@ provider "azurerm" {
 - The `features {}` block is required, even when empty.
 - `subscription_id` is needed for `plan` and `apply`, from the argument or `ARM_SUBSCRIPTION_ID`. `terraform validate` works without it. Never write the ID as a literal (HC2).
 - From 5.0 the provider registers no Azure resource providers by default (`resource_provider_registrations` defaults to `none`). List what the configuration needs in `resource_providers_to_register`, or confirm that the platform team registers them, or the first apply of a new service fails with a registration error.
+- From 5.0 the provider no longer checks `location` values and resource provider names at plan time by default, so a mistyped region fails at apply. Validate regions in variables (MD4), or turn the check back on with `features { enhanced_validation { locations = true, resource_providers = true } }`. The same block has `preflight_enabled`, which asks Azure to validate a few supported resource types during plan and needs credentials.
 - `storage_use_azuread = true` makes storage data-plane calls with Entra ID. It is required once shared keys are off on a storage account.
 - Credentials come from the environment (`identity-and-secrets.md`), never from the provider block.
 
@@ -40,18 +41,27 @@ Old code, old answers and old examples use the earlier names. The left column is
 
 | Resource | 5.x documentation | Earlier name |
 |---|---|---|
-| `azurerm_storage_account` | `public_network_access = "Disabled"` | `public_network_access_enabled = false` (4.x) |
+| `azurerm_storage_account` | `public_network_access = "Disabled"` | `public_network_access_enabled = false` |
+| `azurerm_storage_account` | the `azurerm_storage_account_static_website` and `azurerm_storage_account_queue_properties` resources | inline `static_website` and `queue_properties` blocks (removed in 5.0) |
+| `azurerm_storage_container` | `storage_account_id` | `storage_account_name` (removed in 5.0) |
 | `azurerm_storage_account` | `https_traffic_only_enabled` | `enable_https_traffic_only` (3.x) |
-| `azurerm_key_vault` | `rbac_authorization_enabled` | `enable_rbac_authorization` |
-| `azurerm_monitor_diagnostic_setting` | `enabled_metric` | `metric` |
-| `azurerm_cosmosdb_account` | `local_authentication_enabled = false` | `local_authentication_disabled = true` |
+| `azurerm_key_vault` | `rbac_authorization_enabled`, now required | `enable_rbac_authorization` (removed in 5.0) |
+| `azurerm_monitor_diagnostic_setting` | `enabled_metric` | `metric` (removed in 5.0) |
+| `azurerm_cosmosdb_account` | `local_authentication_enabled = false` | `local_authentication_disabled = true` (removed in 5.0) |
+| `azurerm_log_analytics_workspace` | `local_authentication_enabled = false` | `local_authentication_disabled = true` (removed in 5.0) |
 | `azurerm_cosmosdb_account` | `automatic_failover_enabled` | `enable_automatic_failover` (3.x) |
 | `azurerm_kubernetes_cluster` | `automatic_upgrade_channel`, `node_os_upgrade_channel` | `automatic_channel_upgrade`, `node_os_channel_upgrade` (3.x) |
 | `azurerm_kubernetes_cluster` node pools | `auto_scaling_enabled` | `enable_auto_scaling` (3.x) |
+| `azurerm_kubernetes_cluster` | a `node_provisioning_profile` block, now required | not required before 5.0 |
 | `azurerm_subnet` | `private_endpoint_network_policies` (a string) | `private_endpoint_network_policies_enabled` (a boolean, 3.x) |
+| `azurerm_subnet` | `service_endpoint` blocks | the `service_endpoints` list (removed in 5.0) |
+| `azurerm_federated_identity_credential` | `user_assigned_identity_id` | `parent_id` (removed in 5.0) |
 | provider block | `resource_provider_registrations` | `skip_provider_registration` (3.x) |
 
-Resource types removed in 4.0 that old code still uses: `azurerm_app_service`, `azurerm_app_service_plan` and `azurerm_function_app` (use the `azurerm_linux_*` and `azurerm_windows_*` web and function app types with `azurerm_service_plan`), and `azurerm_sql_server` and `azurerm_sql_database` (use `azurerm_mssql_*`).
+Resource types that old code still uses and that no longer exist:
+
+- Removed in 5.0: `azurerm_app_service`, `azurerm_app_service_plan` and `azurerm_function_app` (use the `azurerm_linux_*` and `azurerm_windows_*` web and function app types with `azurerm_service_plan`); `azurerm_postgresql_server` and its child resources (use `azurerm_postgresql_flexible_server`); `azurerm_static_site` (use `azurerm_static_web_app`).
+- Removed in 4.0: `azurerm_sql_server` and `azurerm_sql_database` (use `azurerm_mssql_server` and `azurerm_mssql_database`).
 
 This table is not complete. The rule is AZ8: read the page for the pinned version.
 
@@ -110,7 +120,7 @@ Fix-forward options to offer: revert the attribute that forces the replacement; 
 ## Major upgrades
 
 - Move to the last release of the current major first and clear every deprecation warning there. Those warnings are the list of what the next major removes.
-- Read the upgrade guide for the target major in the registry's guides before changing the pin, and expect changed defaults as well as changed names. The 5.0 change to resource provider registration is one example.
+- Read the upgrade guide for the target major in the registry's guides before changing the pin, and expect changed defaults as well as changed names. The 5.0 guide removes 39 resource types and lists breaking changes in 134 others; the change to resource provider registration is one of them.
 - Front Door (classic) and CDN (classic) resources have blocked new creations since 4.35.0. Move to the current services before or with the upgrade.
 - Go to the newest release of the target major, not its first: later releases carry fixes to state migrations.
 - The procedure is in `adopt-and-refactor.md`.

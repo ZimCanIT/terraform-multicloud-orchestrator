@@ -11,7 +11,6 @@ variable "subnets" {
   description = "Subnets to create, keyed by a short stable name. The key becomes part of the resource address."
   type = map(object({
     address_prefixes                  = list(string)
-    service_endpoints                 = optional(list(string), [])
     private_endpoint_network_policies = optional(string, "Enabled")
     delegation = optional(object({
       name    = string
@@ -162,7 +161,7 @@ Do not put `depends_on` on a module "to be safe": every data source inside it is
 
 ## Style (HC8)
 
-- Order inside a block: `count` or `for_each`, a blank line, arguments, nested blocks, `tags`, then `lifecycle`, then `depends_on`.
+- Order inside a block: `count` or `for_each`, a blank line, arguments, nested blocks, then `lifecycle`, then `depends_on`. The examples in this skill keep `tags` as the last argument before `lifecycle`; follow the repository's habit where it has one.
 - Do not repeat the type in the name: `azurerm_virtual_network.hub`, not `azurerm_virtual_network.hub_vnet`. A module's single primary resource is `this`.
 - Write `var.name`, not `"${var.name}"`.
 - Use `#` comments, and only where the reason is not obvious from the code.

@@ -23,7 +23,7 @@ resource "azurerm_storage_account" "this" {
   allow_nested_items_to_be_public   = false
   cross_tenant_replication_enabled  = false
   local_user_enabled                = false
-  public_network_access             = "Disabled" # azurerm 4.x: public_network_access_enabled = false
+  public_network_access             = "Disabled" # earlier releases: public_network_access_enabled = false
   infrastructure_encryption_enabled = true       # changing this later replaces the account
 
   blob_properties {
@@ -153,7 +153,7 @@ resource "azurerm_linux_web_app" "this" {
 
 - Application settings that need a secret hold a Key Vault reference, `@Microsoft.KeyVault(SecretUri=<secret id>)`, never the value.
 - The identity named in `key_vault_reference_identity_id` must also be listed in the `identity` block.
-- Old code may use `azurerm_app_service`, `azurerm_app_service_plan` or `azurerm_function_app`. Those types were removed in 4.0; the replacements are `azurerm_linux_web_app` or `azurerm_windows_web_app`, `azurerm_service_plan`, and `azurerm_linux_function_app` or `azurerm_windows_function_app`.
+- Old code may use `azurerm_app_service`, `azurerm_app_service_plan` or `azurerm_function_app`. Those types were removed in 5.0; the replacements are `azurerm_linux_web_app` or `azurerm_windows_web_app`, `azurerm_service_plan`, and `azurerm_linux_function_app` or `azurerm_windows_function_app`.
 
 ## AKS
 
@@ -177,6 +177,10 @@ resource "azurerm_kubernetes_cluster" "this" {
   identity {
     type         = "UserAssigned"
     identity_ids = [var.cluster_identity_id]
+  }
+
+  node_provisioning_profile {
+    mode = "Manual"
   }
 
   default_node_pool {
@@ -210,7 +214,7 @@ resource "azurerm_kubernetes_cluster" "this" {
 - Changing `private_cluster_enabled` replaces the cluster, and the OIDC issuer cannot be turned off once on.
 - Add user node pools as `azurerm_kubernetes_cluster_node_pool` with `for_each`.
 - Let the kubelet identity pull images with an AcrPull role assignment; do not enable the registry's admin user.
-- The 5.x page also documents a `node_provisioning_profile` block. Read the page for the pinned version before writing a cluster.
+- From 5.0 the `node_provisioning_profile` block is required. `mode = "Manual"` keeps node pools under Terraform's control; `Auto` hands node provisioning to AKS.
 
 ## Other services
 

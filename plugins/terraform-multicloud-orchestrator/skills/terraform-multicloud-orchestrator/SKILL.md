@@ -74,7 +74,7 @@ Every rule has an ID so that a review can cite it. The reference files hold the 
 - **HC2** No environment-specific literal inside a resource: no IDs, names, regions, SKUs, address ranges, tenant or subscription IDs. Use variables and `locals`; read the tenant and caller from `data.azurerm_client_config`.
 - **HC3** Build names once in `locals` from the naming convention, and merge tags once in `locals`.
 - **HC4** Keep addresses stable through refactors with `moved`, `import` and `removed` blocks. A rename without a `moved` block is a destroy and create.
-- **HC5** Put `prevent_destroy = true` on resources that hold data. Keep every `ignore_changes` narrow and comment who else owns the attribute (Azure Policy, an autoscaler, AKS).
+- **HC5** Protect resources that hold data from deletion: `prevent_destroy = true`, or a management lock where the same module also serves environments that are torn down. Keep every `ignore_changes` narrow and comment who else owns the attribute (Azure Policy, an autoscaler, AKS).
 - **HC6** No provisioners, no `null_resource`, no `local-exec` that calls `az`. Use `azapi` for what `azurerm` cannot express, and `terraform_data` only as a replacement trigger.
 - **HC7** Use `depends_on` only for a dependency Terraform cannot see, such as a role assignment that must exist before a data-plane call, and say why in a comment.
 - **HC8** Standard files: `versions.tf`, `providers.tf` (roots only), `main.tf`, `variables.tf`, `outputs.tf`, `locals.tf`; split a large module by concern (`network.tf`, `identity.tf`). Use `snake_case`, name a module's single primary resource `this`, put `count` or `for_each` first and `lifecycle` then `depends_on` last, keep `fmt` clean, and comment the reason, not the syntax. Commit `terraform.tfvars.example`, not `terraform.tfvars`.
@@ -207,7 +207,7 @@ Assets and scripts:
 
 - `assets/review-checklist.md` — the checklist for self-review and code review.
 - `assets/handoff-template.md` — the hand-off structure.
-- `assets/reference-stack/` — a small root and module written to this standard, validated in CI.
+- `assets/reference-stack/` — a small root and module written to this standard, with plan-mode tests; validated and tested in CI.
 - `scripts/validate.sh` — the plan-only validation chain.
 
 ## Attribution & licence

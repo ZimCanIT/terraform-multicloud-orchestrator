@@ -28,6 +28,7 @@ resource "azurerm_subnet" "this" {
 - `default_outbound_access_enabled = false` makes the subnet private. Provide outbound connectivity explicitly, with a NAT gateway or a route to a firewall, before a workload needs the internet.
 - `private_endpoint_network_policies` accepts `Disabled` (the default), `Enabled`, `NetworkSecurityGroupEnabled` and `RouteTableEnabled`. Set `Enabled` on subnets that hold private endpoints so that security groups and routes apply to them.
 - A delegated subnet serves one service and cannot hold anything else.
+- From 5.0 a service endpoint is a `service_endpoint` block; the `service_endpoints` list was removed. For data services prefer a private endpoint to a service endpoint.
 
 ## Network security groups
 

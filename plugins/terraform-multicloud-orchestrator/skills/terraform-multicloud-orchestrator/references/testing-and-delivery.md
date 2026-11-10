@@ -63,6 +63,8 @@ run "rejects_an_invalid_name" {
 
 Test the contract, not the provider: the secure defaults hold; validation rejects bad input; an optional feature creates nothing when it is off; names follow the convention. `mock_provider` needs Terraform 1.7.
 
+A mocked provider still checks arguments against the real schema, so IDs in test inputs must be well formed. `assets/reference-stack/modules/storage_account/tests/` holds a working copy of this pattern, and CI runs it.
+
 ## Pipeline shape
 
 1. **Pull request:** format check, validate, lint, scan, tests, then a plan with a read-only identity. Post the plan summary and the list of deletions and replacements on the pull request.
