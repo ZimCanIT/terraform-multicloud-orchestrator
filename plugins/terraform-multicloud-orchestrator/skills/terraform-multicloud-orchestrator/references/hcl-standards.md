@@ -15,7 +15,7 @@ variable "subnets" {
     delegation = optional(object({
       name    = string
       service = string
-      actions = optional(list(string), [])
+      actions = optional(list(string))
     }))
   }))
   nullable = false

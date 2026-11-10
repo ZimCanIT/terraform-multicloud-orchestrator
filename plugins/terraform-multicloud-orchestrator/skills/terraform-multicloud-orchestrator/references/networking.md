@@ -34,7 +34,7 @@ resource "azurerm_subnet" "this" {
 
 - Every subnet gets a security group through `azurerm_subnet_network_security_group_association`. The exceptions are fixed by Azure: `GatewaySubnet` and `AzureFirewallSubnet` take none, and `AzureBastionSubnet` needs the rule set that the Bastion documentation lists. Model the exception as an input, not as a missing association.
 - Declare rules either inline or as `azurerm_network_security_rule` resources keyed by name, not both for one group.
-- The default rules allow all traffic inside the virtual network. Add an explicit deny for inbound traffic at a low priority (a high number such as 4096) and allow only what each tier needs.
+- The default rules allow all traffic inside the virtual network. Add an explicit deny for inbound traffic at a low priority (a high number such as 4096) and allow only what each tier needs. That deny also blocks load balancer health probes, so a subnet behind a load balancer needs a rule that allows the `AzureLoadBalancer` service tag.
 - No rule allows `*` or `Internet` to ports 22 or 3389. Use Bastion or a private path.
 - Prefer service tags and application security groups to lists of addresses. Leave gaps between priorities.
 - For traffic logs use virtual network flow logs; flow logs on security groups are being retired.
@@ -95,6 +95,8 @@ One endpoint per sub-resource in use. Common sub-resources and their zones:
 ## Peering
 
 `azurerm_virtual_network_peering` is one resource per direction, each created with the provider configuration for its own subscription (`module-design.md` shows the alias pattern). `use_remote_gateways` on the spoke needs the hub gateway to exist and `allow_gateway_transit` on the hub side.
+
+`assets/reference-stack/modules/virtual_network/` is a working module with these patterns: subnets, security groups and associations from one input map, rules keyed by subnet and name, and a final deny rule. CI validates and tests it.
 
 ## Before the hand-off
 

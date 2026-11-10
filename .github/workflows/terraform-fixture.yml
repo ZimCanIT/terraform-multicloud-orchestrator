@@ -128,19 +128,39 @@ jobs:
           fi
           cat "${RUNNER_TEMP}/fmt.out"
 
-          # The module's tests run in plan mode against a mocked provider, so they create nothing.
-          cd modules/storage_account
-          terraform init -backend=false -input=false -no-color
-          if ! terraform test -no-color > "${RUNNER_TEMP}/test.out" 2>&1; then
-            failed=1
-            annotate "terraform test failed on the reference module" "${RUNNER_TEMP}/test.out"
-          elif ! grep -Eq '^Success! [1-9][0-9]* passed, 0 failed' "${RUNNER_TEMP}/test.out"; then
-            # An empty test directory also exits 0, so require at least one passing run.
-            failed=1
-            annotate "terraform test ran no tests on the reference module" "${RUNNER_TEMP}/test.out"
-          else
-            echo "::notice title=Reference module tests::$(grep -E '^Success!' "${RUNNER_TEMP}/test.out")"
-          fi
-          cat "${RUNNER_TEMP}/test.out"
+          # Each reusable module must also validate on its own, and its tests must pass. The tests
+          # use plan mode and a mocked provider, so they need no credentials and create nothing.
+          for module in modules/*/; do
+            name="$(basename "${module}")"
+            pushd "${module}" > /dev/null
+
+            if ! terraform init -backend=false -input=false -no-color > "${RUNNER_TEMP}/${name}-init.out" 2>&1; then
+              failed=1
+              annotate "terraform init failed on module ${name}" "${RUNNER_TEMP}/${name}-init.out"
+              cat "${RUNNER_TEMP}/${name}-init.out"
+              popd > /dev/null
+              continue
+            fi
+
+            if ! terraform validate -no-color > "${RUNNER_TEMP}/${name}-validate.out" 2>&1; then
+              failed=1
+              annotate "terraform validate failed on module ${name}" "${RUNNER_TEMP}/${name}-validate.out"
+            fi
+            cat "${RUNNER_TEMP}/${name}-validate.out"
+
+            if ! terraform test -no-color > "${RUNNER_TEMP}/${name}-test.out" 2>&1; then
+              failed=1
+              annotate "terraform test failed on module ${name}" "${RUNNER_TEMP}/${name}-test.out"
+            elif ! grep -Eq '^Success! [1-9][0-9]* passed, 0 failed' "${RUNNER_TEMP}/${name}-test.out"; then
+              # An empty test directory also exits 0, so require at least one passing run.
+              failed=1
+              annotate "terraform test ran no tests on module ${name}" "${RUNNER_TEMP}/${name}-test.out"
+            else
+              echo "::notice title=Tests for module ${name}::$(grep -E '^Success!' "${RUNNER_TEMP}/${name}-test.out")"
+            fi
+            cat "${RUNNER_TEMP}/${name}-test.out"
+
+            popd > /dev/null
+          done
 
           exit "${failed}"
