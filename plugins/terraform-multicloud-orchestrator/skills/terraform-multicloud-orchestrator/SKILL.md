@@ -219,7 +219,6 @@ Reusable resources:
 - `scripts/validate.sh` — canonical plan-only validation chain.
 - `assets/session-config-template.md` — first substantive reply configuration block.
 - `assets/final-report-template.md` — handoff report structure.
-- `eval_queries.json` — labelled trigger regression set for description tuning.
 
 ## Attribution & licence
 

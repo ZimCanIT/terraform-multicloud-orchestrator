@@ -21,7 +21,6 @@ Whenever Terraform, HCL, `.tf` files, IaC modules, provider upgrades, or state m
 
 ```
 SKILL.md                     # cloud-agnostic spine (authoritative)
-eval_queries.json            # trigger regression set
 assets/                      # session-config + final-report templates
 scripts/validate.sh          # the plan-only validation chain for humans/CI
 references/

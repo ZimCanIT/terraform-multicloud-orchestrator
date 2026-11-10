@@ -12,7 +12,7 @@ This repository ships three things:
 
 - **A Claude Code plugin marketplace.** Add it once, then install the plugin.
 - **A Codex plugin package.** The plugin includes `.codex-plugin/plugin.json` and a bundled `skills/` folder.
-- **A portable Agent Skill.** The `skills/terraform-multicloud-orchestrator/` folder is self-contained: `SKILL.md`, references, scripts, assets and eval queries.
+- **A portable Agent Skill.** The `skills/terraform-multicloud-orchestrator/` folder is self-contained: `SKILL.md`, references, scripts and assets.
 
 ## Install
 
@@ -171,7 +171,6 @@ plugins/terraform-multicloud-orchestrator/
 ├── .codex-plugin/plugin.json
 └── skills/terraform-multicloud-orchestrator/
     ├── SKILL.md                     workflow, guardrails, response contract
-    ├── eval_queries.json            trigger regression set
     ├── assets/                      session config and report templates
     ├── scripts/validate.sh          static and plan validation chain
     └── references/                  4 mechanism files and 4 per-cloud files
