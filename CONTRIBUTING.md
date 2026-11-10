@@ -84,7 +84,7 @@ bash /path/to/plugins/terraform-multicloud-orchestrator/skills/terraform-multicl
 
 ## Reference stack
 
-`plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/assets/reference-stack/` is real Terraform that the skill points to as its worked example. The `reference-stack` job in `.github/workflows/terraform-fixture.yml` copies it to a scratch directory and runs `terraform init -backend=false`, `terraform validate` and `terraform fmt -check -recursive` against the provider version it pins. It is never planned or applied. When you change an argument in a reference file, make the same change in the stack so that CI checks it.
+`plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/assets/reference-stack/` is real Terraform that the skill points to as its worked example. The `reference-stack` job in `.github/workflows/terraform-fixture.yml` copies it to a scratch directory and runs `terraform init -backend=false`, `terraform validate` and `terraform fmt -check -recursive` against the provider version it pins. It then runs the module's tests with `terraform test`; they use plan mode and a mocked provider, so they need no credentials and create nothing. The stack is never planned against Azure or applied. When you change an argument in a reference file, make the same change in the stack so that CI checks it.
 
 To run the same checks locally, from a copy of that directory:
 

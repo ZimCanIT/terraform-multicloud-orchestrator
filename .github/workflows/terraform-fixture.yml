@@ -128,4 +128,13 @@ jobs:
           fi
           cat "${RUNNER_TEMP}/fmt.out"
 
+          # The module's tests run in plan mode against a mocked provider, so they create nothing.
+          cd modules/storage_account
+          terraform init -backend=false -input=false -no-color
+          if ! terraform test -no-color > "${RUNNER_TEMP}/test.out" 2>&1; then
+            failed=1
+            annotate "terraform test failed on the reference module" "${RUNNER_TEMP}/test.out"
+          fi
+          cat "${RUNNER_TEMP}/test.out"
+
           exit "${failed}"
