@@ -1,18 +1,18 @@
-# Terraform Multi-Cloud Orchestrator
+# Terraform Authoring Companion for Azure
 
-A plan-only, failure-mode-first Terraform agent skill for **AWS, Azure, GCP and Oracle Cloud (OCI) Public Clouds**.
+A plan-only agent skill that writes, reviews and refactors Terraform for **Microsoft Azure** (`azurerm` and `azapi`) to a stated standard.
 
-**Failure-mode first** means the skill starts from how a change is most likely to go wrong, not from the code. Before it writes any HCL, it checks four risks: identity churn (Terraform plans a destroy and recreate when you meant an in-place update), blast radius (the resources one `apply` can change or destroy), state migration (moving resources between states or addresses without losing track of them) and compliance gates (the policy, residency and approval checks the plan must pass).
-
-On first use it asks which clouds you target and how you want provider versions pinned. It keeps those answers for the session and loads only the reference files for the clouds you named.
+It works the way a senior platform engineer pairs on infrastructure code. It reads the repository first and decides which stack and module a change belongs to. It writes typed, validated HCL with Azure naming, managed identities, private networking and secure defaults. It checks every argument against the provider version you pin, reviews its own output against a checklist, and validates with plan-only commands.
 
 `apply` and `destroy` are restricted. The skill never runs them and never pre-approves them. See [Safety](#safety).
+
+> The plugin, the skill and this repository keep the name `terraform-multicloud-orchestrator`, so existing installs and release tags keep working. The skill now covers Azure only: AWS, GCP and OCI are out of scope.
 
 This repository ships three things:
 
 - **A Claude Code plugin marketplace.** Add it once, then install the plugin.
 - **A Codex plugin package.** The plugin includes `.codex-plugin/plugin.json` and a bundled `skills/` folder.
-- **A portable Agent Skill.** The `skills/terraform-multicloud-orchestrator/` folder is self-contained: `SKILL.md`, references, scripts, assets and eval queries.
+- **A portable Agent Skill.** The `skills/terraform-multicloud-orchestrator/` folder is self-contained: `SKILL.md`, references, scripts and assets.
 
 ## Install
 
@@ -57,11 +57,20 @@ Otherwise, copy that folder into the agent's skills directory. For Claude Code, 
 
 ## How it works
 
-- **Shared spine, per-cloud references.** The workflow, guardrails, pinning rules and state handling are cloud-neutral. Cloud facts live in `references/aws.md`, `azure.md`, `gcp.md` and `oci.md`: ForceNew traps, resources that are expensive to recreate, provider upgrade notes, tagging and policy tooling. Each file loads only when needed.
-- **Ask once.** It asks for target clouds and a pinning strategy (`exact`, `pessimistic-minor`, `pessimistic-patch` or `latest-stable-and-pin`), then records both in a `SESSION CONFIG` block it follows for the rest of the session.
-- **Plan-only.** It runs only the exact permitted forms: `init`, `validate`, `fmt -check -recursive`, `plan -out=tfplan`, `show -json tfplan`, `providers` and `state list`. Reading plan JSON with `jq` needs your approval. A planned replacement of an expensive resource triggers a stop-and-confirm gate.
+- **A standard with rule IDs.** `SKILL.md` §3 lists 26 rules in four groups: structure and state, modules and interfaces, language, and the Azure platform. The code it writes follows them, and a review cites them by ID.
+- **References by task.** Ten reference files load only when the task needs them: HCL standards, module design, naming and tagging, the secure baseline by resource type, networking, identity and secrets, state and environments, the providers, adopting and refactoring existing resources, and testing and delivery.
+- **Checked against the provider.** Argument names change between `azurerm` majors. The skill uses the version the repository pins and checks arguments against the registry page for that version.
+- **A reference stack.** `assets/reference-stack/` is a small root module with three reusable modules (a storage account, a Key Vault and a virtual network) written to the standard. CI runs `terraform validate` and the modules' plan-mode tests on it.
+- **Reads first, asks little.** It follows the conventions already in the repository and asks only for what blocks correct code, once.
+- **Plan-only.** It runs only the exact permitted forms: `init`, `validate`, `fmt -check -recursive`, `plan -out=tfplan`, `show -json tfplan`, `providers` and `state list`. Reading plan JSON with `jq` needs your approval. A planned deletion or replacement of a resource on its stop list makes it stop and ask.
 - **Automatic.** It triggers when a request matches its description.
-- **A fixed response shape.** Each answer gives its assumptions and version floor, the risk it addresses, remediation and tradeoffs, a validation plan, and rollback notes.
+
+## Try it
+
+- "Add a private storage account for the orders workload in UK South, with diagnostics."
+- "Review `modules/network` against your standard. Blockers first."
+- "Bring the resources in `rg-legacy-prod` under Terraform without replacing anything."
+- "Upgrade this stack from azurerm 4 to 5."
 
 ## Safety
 
@@ -69,7 +78,7 @@ Otherwise, copy that folder into the agent's skills directory. For Claude Code, 
 
 - The permitted commands are exact forms: `init`, `validate`, `fmt -check -recursive`, `plan -out=tfplan`, `show -json tfplan`, `providers`, and `state list`. Reading plan JSON with `jq` needs your approval.
 - The skill never runs `terraform apply` or `terraform destroy`, never uses `-auto-approve`, and refuses named extras such as `test`, `taint`, `refresh` and `state rm`.
-- Cloud CLI or API calls that create, update, delete or set resources are forbidden.
+- `az` commands and REST calls that create, update, delete or set resources are forbidden.
 - If asked to deploy, it replies that apply and destroy are restricted, then tells you to review the plan and run apply yourself.
 - An operator can lift any of these restrictions by editing the skill's guardrails. Requests in a session or in a standards document don't override them.
 
@@ -170,19 +179,18 @@ plugins/terraform-multicloud-orchestrator/
 ├── .claude-plugin/plugin.json
 ├── .codex-plugin/plugin.json
 └── skills/terraform-multicloud-orchestrator/
-    ├── SKILL.md                     workflow, guardrails, response contract
-    ├── eval_queries.json            trigger regression set
-    ├── assets/                      session config and report templates
-    ├── scripts/validate.sh          static and plan validation chain
-    └── references/                  4 mechanism files and 4 per-cloud files
-examples/                            sample sessions for AWS, Azure and GCP
+    ├── SKILL.md                     workflow, guardrails, the authoring standard
+    ├── references/                  10 task references for Azure
+    ├── assets/                      review checklist, hand-off template, reference stack
+    └── scripts/validate.sh          static and plan validation chain
 scripts/                             repository validators
+tests/                               validator tests and the CI fixture
 ```
 
 ## Pair it with provider docs
 
-The skill favours fix-forward: correct the HCL and re-plan, rather than destroy and recreate. That only works if the HCL matches the provider's current schema, so connect the documentation MCP server for each cloud you target. For Azure, the [Microsoft Learn MCP server](https://learn.microsoft.com) gives live access to current Azure and `azurerm` documentation. [This article](https://medium.com/@zimcanit/grounding-claude-code-with-the-microsoft-learn-mcp-server-9b2f2d517fb7) covers setup.
+The skill checks arguments against the provider's documentation, so give it a live source. The [Microsoft Learn MCP server](https://learn.microsoft.com) gives access to current Azure and `azurerm` documentation. [This article](https://medium.com/@zimcanit/grounding-claude-code-with-the-microsoft-learn-mcp-server-9b2f2d517fb7) covers setup.
 
 ## Licence and attribution
 
-The failure-mode-first method is inspired by [TerraShark](https://github.com/LukasNiessen/terrashark) (MIT). The diagnose-first routing and response contract are inspired by [Anton Babenko's terraform-skill](https://github.com/antonbabenko/terraform-skill) (Apache-2.0). The reference content is original. Licensed under [MIT](LICENSE).
+The diagnose-before-generate idea came from [TerraShark](https://github.com/LukasNiessen/terrashark) (MIT) and [Anton Babenko's terraform-skill](https://github.com/antonbabenko/terraform-skill) (Apache-2.0). The reference content is original. Licensed under [MIT](LICENSE).

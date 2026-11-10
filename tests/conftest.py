@@ -6,9 +6,8 @@ import os
 
 import pytest
 
-# A GitHub runner sets these while pytest runs. The eval tooling reads them to write the job
-# summary and to print workflow commands, so without this fixture its tests would put fixture
-# results into the real job summary and annotations. A test that needs one sets it itself.
+# A GitHub runner sets these while pytest runs. Tests must not write to the real job summary,
+# outputs or environment files, so each test starts without them. A test that needs one sets it itself.
 GITHUB_VARIABLES = ("GITHUB_ACTIONS", "GITHUB_STEP_SUMMARY", "GITHUB_OUTPUT", "GITHUB_ENV", "GITHUB_PATH")
 # Read once, before the fixture below removes the variable for each test.
 ON_GITHUB_ACTIONS = os.environ.get("GITHUB_ACTIONS") == "true"

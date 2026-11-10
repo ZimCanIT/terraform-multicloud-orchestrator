@@ -15,7 +15,7 @@
     {
       "name": "terraform-multicloud-orchestrator",
       "source": "./plugins/terraform-multicloud-orchestrator",
-      "description": "Plan-only, failure-mode-first Terraform orchestrator for AWS, Azure, GCP and OCI. Asks once for target cloud(s) and provider-pinning strategy, then loads only the relevant per-cloud reference.",
+      "description": "Plan-only Terraform authoring companion for Azure: module and state design, Azure naming, identity, networking and secure-by-default baselines, checked against the pinned azurerm version.",
       "category": "infrastructure"
     }
   ]

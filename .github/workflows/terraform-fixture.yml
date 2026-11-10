@@ -79,3 +79,88 @@ jobs:
             exit 1
           fi
           echo "action_reason for terraform_data.r: ${reason}"
+
+  reference-stack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.16.6"
+          terraform_wrapper: false
+
+      - name: Validate the skill's reference stack
+        shell: bash
+        env:
+          STACK_DIR: plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/assets/reference-stack
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d "${RUNNER_TEMP}/reference-stack.XXXXXX")"
+          cp -R "${GITHUB_WORKSPACE}/${STACK_DIR}/." "${work}/"
+          cd "${work}"
+
+          # Put the end of a failed command's output in an annotation, so that the failure
+          # can be read on the checks page without opening the log.
+          annotate() {
+            local title="$1" file="$2" message
+            message="$(tail -n 40 "${file}" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN { ORS = "%0A" } { print }')"
+            echo "::error title=${title}::${message}"
+          }
+
+          # Static checks only: no backend, no credentials, and nothing is planned or applied.
+          terraform init -backend=false -input=false -no-color
+          failed=0
+
+          if ! terraform validate -no-color > "${RUNNER_TEMP}/validate.out" 2>&1; then
+            failed=1
+            annotate "terraform validate failed on the reference stack" "${RUNNER_TEMP}/validate.out"
+          fi
+          cat "${RUNNER_TEMP}/validate.out"
+
+          if ! terraform fmt -check -recursive -diff > "${RUNNER_TEMP}/fmt.out" 2>&1; then
+            failed=1
+            annotate "terraform fmt -check failed on the reference stack" "${RUNNER_TEMP}/fmt.out"
+          fi
+          cat "${RUNNER_TEMP}/fmt.out"
+
+          # Each reusable module must also validate on its own, and its tests must pass. The tests
+          # use plan mode and a mocked provider, so they need no credentials and create nothing.
+          for module in modules/*/; do
+            name="$(basename "${module}")"
+            pushd "${module}" > /dev/null
+
+            if ! terraform init -backend=false -input=false -no-color > "${RUNNER_TEMP}/${name}-init.out" 2>&1; then
+              failed=1
+              annotate "terraform init failed on module ${name}" "${RUNNER_TEMP}/${name}-init.out"
+              cat "${RUNNER_TEMP}/${name}-init.out"
+              popd > /dev/null
+              continue
+            fi
+
+            if ! terraform validate -no-color > "${RUNNER_TEMP}/${name}-validate.out" 2>&1; then
+              failed=1
+              annotate "terraform validate failed on module ${name}" "${RUNNER_TEMP}/${name}-validate.out"
+            fi
+            cat "${RUNNER_TEMP}/${name}-validate.out"
+
+            if ! terraform test -no-color > "${RUNNER_TEMP}/${name}-test.out" 2>&1; then
+              failed=1
+              annotate "terraform test failed on module ${name}" "${RUNNER_TEMP}/${name}-test.out"
+            elif ! grep -Eq '^Success! [1-9][0-9]* passed, 0 failed' "${RUNNER_TEMP}/${name}-test.out"; then
+              # An empty test directory also exits 0, so require at least one passing run.
+              failed=1
+              annotate "terraform test ran no tests on module ${name}" "${RUNNER_TEMP}/${name}-test.out"
+            else
+              echo "::notice title=Tests for module ${name}::$(grep -E '^Success!' "${RUNNER_TEMP}/${name}-test.out")"
+            fi
+            cat "${RUNNER_TEMP}/${name}-test.out"
+
+            popd > /dev/null
+          done
+
+          exit "${failed}"

@@ -1,7 +1,7 @@
 {
   "name": "terraform-multicloud-orchestrator",
   "version": "0.1.1",
-  "description": "Plan-only, failure-mode-first Terraform orchestrator for AWS, Azure, GCP and OCI. Diagnoses state, identity, blast-radius and compliance risks before generating HCL.",
+  "description": "Plan-only Terraform authoring companion for Azure. Writes, reviews and refactors azurerm and azapi code to a stated standard and validates it without applying.",
   "author": {
     "name": "Joshua Musiyarira (ZimCanIT)",
     "url": "https://zimcanit.com"
@@ -13,19 +13,18 @@
     "terraform",
     "opentofu",
     "iac",
-    "aws",
     "azure",
-    "gcp",
-    "oci",
-    "multicloud",
+    "azurerm",
+    "azapi",
+    "azure-verified-modules",
     "infrastructure",
     "hcl"
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "Terraform Multi-Cloud Orchestrator",
-    "shortDescription": "Plan-only Terraform authoring across AWS, Azure, GCP and OCI.",
-    "longDescription": "Diagnoses identity churn, blast radius, state migration and compliance risks before generating or refactoring Terraform. Uses per-cloud references and plan-only validation; never applies or destroys infrastructure.",
+    "displayName": "Terraform Authoring Companion for Azure",
+    "shortDescription": "Plan-only Terraform authoring and review for Azure.",
+    "longDescription": "Writes, reviews and refactors Terraform for Azure to a stated standard: module and state boundaries, typed interfaces, Azure naming and tagging, managed identities, private networking and secure defaults. Checks arguments against the pinned azurerm version and validates with plan-only commands; never applies or destroys infrastructure.",
     "developerName": "Joshua Musiyarira (ZimCanIT)",
     "category": "Developer Tools",
     "capabilities": [
@@ -35,9 +34,9 @@
     ],
     "websiteURL": "https://github.com/ZimCanIT/terraform-multicloud-orchestrator",
     "defaultPrompt": [
-      "Author a secure AWS VPC module.",
-      "Review this Terraform plan for replacement risk.",
-      "Refactor this module without state churn."
+      "Author a private storage account module for Azure.",
+      "Review this Azure Terraform against the standard.",
+      "Import these Azure resources without replacing them."
     ],
     "brandColor": "#1F6FEB"
   }

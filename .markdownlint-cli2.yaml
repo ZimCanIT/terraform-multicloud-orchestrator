@@ -2,7 +2,6 @@ globs:
   - "README.md"
   - "CHANGELOG.md"
   - "CONTRIBUTING.md"
-  - "examples/**/*.md"
   - "plugins/**/*.md"
 
 ignores:

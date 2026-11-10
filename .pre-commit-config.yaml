@@ -52,7 +52,7 @@ repos:
         additional_dependencies:
           - markdownlint-cli2@0.22.1
         entry: markdownlint-cli2
-        files: "^(README|CHANGELOG|CONTRIBUTING)\\.md$|^examples/.*\\.md$|^plugins/.*\\.md$"
+        files: "^(README|CHANGELOG|CONTRIBUTING)\\.md$|^plugins/.*\\.md$"
         types: [markdown]
 
       - id: validate-codex-plugin
@@ -69,14 +69,6 @@ repos:
         entry: python scripts/validate_skill_frontmatter.py
         pass_filenames: false
         files: "(^|/)SKILL\\.md$|^scripts/validate_skill_frontmatter\\.py$"
-
-      - id: validate-evals
-        name: validate skill eval cases
-        language: python
-        additional_dependencies: [pyyaml]
-        entry: python scripts/validate_evals.py
-        pass_filenames: false
-        files: "^plugins/[^/]+/evals/|(^|/)eval_queries\\.json$|^scripts/(validate_evals|eval_suite)\\.py$"
 
       - id: validate-versions
         name: validate release version fields agree

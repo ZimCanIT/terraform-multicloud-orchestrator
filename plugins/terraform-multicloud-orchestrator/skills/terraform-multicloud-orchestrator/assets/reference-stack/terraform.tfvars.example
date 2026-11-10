@@ -1,0 +1,15 @@
+# Copy to an environment input file and replace every value. These IDs are placeholders.
+subscription_id            = "00000000-0000-0000-0000-000000000000"
+workload                   = "orders"
+environment                = "dev"
+location                   = "uksouth"
+log_analytics_workspace_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-logging-prod-uks-001/providers/Microsoft.OperationalInsights/workspaces/log-platform-prod-uks-001"
+
+storage_private_endpoint = {
+  subnet_id            = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network-dev-uks-001/providers/Microsoft.Network/virtualNetworks/vnet-spoke-dev-uks-001/subnets/snet-endpoints-spoke-dev-uks-001"
+  private_dns_zone_ids = ["/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-dns-prod-uks-001/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net"]
+}
+
+tags = {
+  cost_centre = "0000"
+}

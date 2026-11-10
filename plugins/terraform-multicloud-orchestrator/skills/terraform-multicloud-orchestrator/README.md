@@ -1,15 +1,17 @@
-# Terraform Multi-Cloud Orchestrator (Agent Skill)
+# Terraform Authoring Companion for Azure (Agent Skill)
 
-Plan-only, failure-mode-first Terraform orchestrator for **AWS, Azure, GCP and OCI**. It diagnoses the failure modes most likely to bite — identity churn, blast radius, state migration, compliance gates — *before* writing HCL, asks once for the target cloud(s) and provider-pinning strategy, then loads only the relevant per-cloud reference.
+Plan-only skill that writes, reviews and refactors Terraform for **Azure** (`azurerm` and `azapi`) to a stated standard: module and state boundaries, typed interfaces, Azure naming and tagging, managed identities, private networking and secure defaults. It checks arguments against the provider version the repository pins.
 
 **Strictly plan-only: it never runs `apply` or `destroy`.**
 
 - Version: `0.1.1` <!-- x-release-please-version --> · License: MIT
 - Authoritative spec: [`SKILL.md`](./SKILL.md)
 
+The skill keeps the name `terraform-multicloud-orchestrator` so that existing installs keep working. It covers Azure only.
+
 ## When it activates
 
-Whenever Terraform, HCL, `.tf` files, IaC modules, provider upgrades, or state migration/refactors come up — generating, reviewing, validating or refactoring infrastructure code across AWS, Azure, GCP or OCI — even if the skill is not named. See the `description` in [`SKILL.md`](./SKILL.md) frontmatter.
+Whenever Terraform or OpenTofu for Azure comes up: writing, reviewing, refactoring or importing `.tf` code that uses `azurerm` or `azapi`, Azure Verified Modules, the `azurerm` backend, or a provider upgrade. See the `description` in the [`SKILL.md`](./SKILL.md) frontmatter.
 
 ## Safety (plan-only)
 
@@ -20,18 +22,21 @@ Whenever Terraform, HCL, `.tf` files, IaC modules, provider upgrades, or state m
 ## Layout
 
 ```
-SKILL.md                     # cloud-agnostic spine (authoritative)
-eval_queries.json            # trigger regression set
-assets/                      # session-config + final-report templates
-scripts/validate.sh          # the plan-only validation chain for humans/CI
+SKILL.md                     # workflow, guardrails and the authoring standard (authoritative)
 references/
-  identity-churn.md  blast-radius.md  migration-playbooks.md  compliance-gates.md   # mechanisms
-  aws.md  azure.md  gcp.md  oci.md                                                   # per-cloud (load on demand)
+  hcl-standards.md  module-design.md  naming-and-tagging.md        # how the code is written
+  secure-baseline.md  networking.md  identity-and-secrets.md       # Azure platform
+  state-and-environments.md  azurerm-provider.md                   # state and providers
+  adopt-and-refactor.md  testing-and-delivery.md                   # change and delivery
+assets/
+  review-checklist.md  handoff-template.md
+  reference-stack/           # a root and a module written to the standard, validated in CI
+scripts/validate.sh          # the plan-only validation chain for humans and CI
 ```
 
 ## Usage
 
-Install the parent plugin (Claude Code or Codex marketplace) per the repository README, then prompt with any Terraform task. The skill establishes the session config once, loads only the in-scope per-cloud reference, generates modular HCL, and validates with two plan-only steps. The static checks need no state or credentials:
+Install the parent plugin (Claude Code or Codex marketplace) per the repository README, then prompt with any Terraform task for Azure. The skill reads the repository, writes or reviews code against the standard in `SKILL.md` §3, and validates with two plan-only steps. The static checks need no state or credentials:
 
 ```bash
 terraform init -backend=false -input=false
@@ -51,7 +56,7 @@ terraform show -json tfplan | jq -r '.resource_changes[]? | select(.change.actio
 
 ## Compatibility
 
-Designed for Claude Code, Codex, and Agent Skills-compatible coding agents. Requires the Terraform or OpenTofu CLI and jq for validation, internet access for provider/module downloads, and cloud credentials only when plan commands need them.
+Designed for Claude Code, Codex, and Agent Skills-compatible coding agents. Requires the Terraform or OpenTofu CLI and jq for validation, internet access for provider/module downloads, and Azure credentials only when plan commands need them.
 
 ## Validating this skill
 
