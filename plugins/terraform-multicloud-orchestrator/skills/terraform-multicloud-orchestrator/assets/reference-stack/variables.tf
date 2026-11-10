@@ -76,6 +76,27 @@ variable "storage_private_endpoint" {
   default = null
 }
 
+variable "vault_private_endpoint" {
+  description = "Subnet and private DNS zones for the Key Vault private endpoint. The network stack owns both. Null creates no endpoint."
+  type = object({
+    subnet_id            = string
+    private_dns_zone_ids = list(string)
+  })
+  default = null
+}
+
+variable "webhook_value_version" {
+  description = "Version of the generated webhook signing value. Raise it by one to rotate the value on the next apply."
+  type        = number
+  default     = 1
+  nullable    = false
+
+  validation {
+    condition     = var.webhook_value_version >= 1 && floor(var.webhook_value_version) == var.webhook_value_version
+    error_message = "webhook_value_version must be a whole number, 1 or greater."
+  }
+}
+
 variable "tags" {
   description = "Extra tags. The mandatory keys are added in locals.tf and cannot be overridden."
   type        = map(string)

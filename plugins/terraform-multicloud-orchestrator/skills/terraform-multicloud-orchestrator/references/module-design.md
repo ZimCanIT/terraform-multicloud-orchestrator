@@ -127,4 +127,4 @@ Write a native module instead when the AVM interface is far larger than the need
 
 Each reusable module has a `README.md` with its purpose, one usage example and its inputs and outputs (`terraform-docs` generates the tables), an `examples/` directory that doubles as a test fixture, and plan-mode tests under `tests/` (`testing-and-delivery.md`).
 
-`assets/reference-stack/` in this skill is a small stack with two modules written to these rules.
+`assets/reference-stack/` in this skill is a small stack with three modules written to these rules.

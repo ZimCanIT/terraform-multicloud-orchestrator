@@ -8,6 +8,11 @@ output "storage_account_id" {
   value       = module.storage.id
 }
 
+output "vault_uri" {
+  description = "URI of the workload Key Vault. The application reads its values from here with its managed identity."
+  value       = module.vault.uri
+}
+
 output "workload_identity_client_id" {
   description = "Client ID of the workload's user-assigned identity, for the application's configuration."
   value       = azurerm_user_assigned_identity.workload.client_id

@@ -88,7 +88,7 @@ For a workload in AKS, use `azurerm_federated_identity_credential` with the clus
    }
    ```
 
-   A write-only value is sent only when its `_version` argument changes, and an ephemeral value is new on every run. Give the same value to every resource that needs it in the same run, and raise their versions together to rotate. Write-only arguments checked so far: `value_wo` on `azurerm_key_vault_secret`, `administrator_login_password_wo` on `azurerm_mssql_server`, `administrator_password_wo` on `azurerm_postgresql_flexible_server`.
+   A write-only value is sent only when its `_version` argument changes, and an ephemeral value is new on every run. Give the same value to every resource that needs it in the same run, and raise their versions together to rotate. The root of `assets/reference-stack/` uses this pattern, and CI validates it. Write-only arguments checked so far: `value_wo` on `azurerm_key_vault_secret`, `administrator_login_password_wo` on `azurerm_mssql_server`, `administrator_password_wo` on `azurerm_postgresql_flexible_server`.
 
 4. **Last resort: the value is in state.** A `sensitive` variable or a `random_password` resource hides the value in output only. It is still in state and in plan files in clear text. Limit who can read the state, and say in the hand-off that the secret is there.
 

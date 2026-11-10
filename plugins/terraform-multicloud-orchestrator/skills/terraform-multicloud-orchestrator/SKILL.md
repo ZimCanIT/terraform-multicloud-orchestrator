@@ -227,7 +227,7 @@ Assets and scripts:
 
 - `assets/review-checklist.md` — the checklist for self-review and code review.
 - `assets/handoff-template.md` — the hand-off structure.
-- `assets/reference-stack/` — a small root and two modules (storage account, virtual network) written to this standard, with plan-mode tests; validated and tested in CI.
+- `assets/reference-stack/` — a small root and three modules (storage account, Key Vault, virtual network) written to this standard, with plan-mode tests; validated and tested in CI.
 - `scripts/validate.sh` — the plan-only validation chain.
 
 ## Attribution & licence

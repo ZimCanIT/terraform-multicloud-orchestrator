@@ -12,6 +12,7 @@ locals {
   names = {
     resource_group  = "rg-${local.name_suffix}"
     identity        = "id-${local.name_suffix}"
+    vault           = "kv-${local.name_suffix}"
     storage_account = "st${replace(local.name_suffix, "-", "")}"
   }
 
