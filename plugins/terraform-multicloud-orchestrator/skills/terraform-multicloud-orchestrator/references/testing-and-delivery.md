@@ -10,10 +10,11 @@ Cheapest first. Each step catches what the one before cannot.
 |---|---|---|
 | `terraform fmt -check -recursive` | formatting | agent |
 | `terraform validate` after `init -backend=false` | unknown arguments, wrong types, missing required values | agent |
+| `scripts/tf_audit.py` | breaches of the authoring standard: literal secrets in code and variable files, public access, missing guards, names removed in `azurerm` 5 | agent, once the user approves the command; pipeline with `--fail-on major` |
 | `tflint` with the `azurerm` rule set | invalid SKUs and sizes, deprecated syntax, unused declarations | user or pipeline |
 | A static scanner such as Checkov or Trivy | insecure settings (public access, missing encryption) | user or pipeline |
 | `terraform test` in plan mode | the module's contract: defaults, validation, optional features | user or pipeline |
-| State-backed plan and the replacement check | what will really change, deletions and replacements | agent, with credentials |
+| State-backed plan and the replacement check (`scripts/plan_review.py` reads it) | what will really change, deletions and replacements, and what forces each one | agent, with credentials |
 | Policy on the plan JSON (Conftest or Sentinel) | organisation rules, before apply | pipeline |
 | Azure Policy at deployment | whatever slipped through; a `deny` effect fails the apply | Azure |
 
@@ -67,6 +68,8 @@ Test the contract, not the provider: the secure defaults hold; validation reject
 A mocked provider still checks arguments against the real schema, so IDs in test inputs must be well formed. `assets/reference-stack/modules/storage_account/tests/` holds a working copy of this pattern, and CI runs it.
 
 ## Pipeline shape
+
+`assets/pipeline/terraform.yml` is a GitHub Actions workflow of this shape to adapt. It leaves out lint, a scanner and module tests, and it writes the list of deletions to the job summary; it does not comment on the pull request. Offer it when a repository has no pipeline; do not install it unasked.
 
 1. **Pull request:** format check, validate, lint, scan, tests, then a plan with a read-only identity. Post the plan summary and the list of deletions and replacements on the pull request.
 2. **Approval:** a person reviews the plan. Use the platform's environment protection (required reviewers) so that the approval is recorded.

@@ -1,0 +1,7 @@
+# Backend settings for the production state of this stack. Copy to environments/prod.backend.hcl and
+# replace the values. The user initialises with:
+#   terraform init -backend-config=environments/prod.backend.hcl
+# One container per stack and environment, so that access granted on the container isolates this state.
+storage_account_name = "sttfstateproduks001"
+container_name       = "orders-prod"
+key                  = "terraform.tfstate"

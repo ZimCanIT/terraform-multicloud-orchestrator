@@ -53,4 +53,5 @@ Stop and fix, or report first.
 
 - [ ] `terraform validate` and `terraform fmt -check -recursive` pass, or the hand-off says they were not run.
 - [ ] A state-backed plan was read for deletions and replacements, or the hand-off says "Replacement check NOT performed".
+- [ ] The audit script reports no blocker and no major finding, or the hand-off explains each one that remains. No suppression was added without the user's agreement.
 - [ ] The hand-off names what was not checked here: lint, scanner, tests, Azure Policy.

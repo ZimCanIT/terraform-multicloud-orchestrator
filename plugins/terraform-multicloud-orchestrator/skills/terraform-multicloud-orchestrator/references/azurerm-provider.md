@@ -65,6 +65,8 @@ Resource types that old code still uses and that no longer exist:
 
 This table is not complete. The rule is AZ8: read the page for the pinned version.
 
+`assets/azurerm-5-changes.json` holds the resource types and arguments that the 5.0 upgrade guide removes or renames, extracted by script. The guide's other changes, to validation, types and behaviour, are not in it. `scripts/tf_audit.py` reads it and reports each use in a repository as an AZ8 finding. Run it before an upgrade (`adopt-and-refactor.md`) and when old code fails to validate.
+
 ## When to use `azapi` (HC6)
 
 Use `azapi` when `azurerm` at the pinned version cannot express a resource type or a property, typically a preview feature. Do not use it by default, and never shell out to `az` instead.
@@ -116,9 +118,11 @@ Providers change these between releases. The plan is the authority: read every l
 
 When a state-backed plan deletes or replaces one of these types, stop as `SKILL.md` §2 describes.
 
-- **Holds data:** `azurerm_storage_account`, `azurerm_key_vault`, `azurerm_mssql_server`, `azurerm_mssql_database`, `azurerm_postgresql_flexible_server`, `azurerm_mysql_flexible_server`, `azurerm_cosmosdb_account`, `azurerm_container_registry`, `azurerm_log_analytics_workspace`, `azurerm_recovery_services_vault`, managed disks.
+- **Holds data:** `azurerm_storage_account`, `azurerm_key_vault`, `azurerm_mssql_server`, `azurerm_mssql_database`, `azurerm_postgresql_flexible_server`, `azurerm_mysql_flexible_server`, `azurerm_cosmosdb_account`, `azurerm_container_registry`, `azurerm_log_analytics_workspace`, `azurerm_recovery_services_vault`, `azurerm_managed_disk`, and `azurerm_resource_group`, because deleting a resource group deletes everything in it.
 - **Slow or disruptive to rebuild:** `azurerm_kubernetes_cluster`, `azurerm_api_management` (30 to 45 minutes), `azurerm_virtual_network_gateway`, `azurerm_firewall`, `azurerm_application_gateway`, `azurerm_app_service_environment_v3`, `azurerm_virtual_network` and `azurerm_subnet` when anything is deployed in them.
 - **Changes an address or identity that others depend on:** `azurerm_public_ip`, `azurerm_private_endpoint`, `azurerm_user_assigned_identity`, `azurerm_private_dns_zone`.
+
+`scripts/plan_review.py` reads plan JSON, marks these types and names the attributes that force each replacement. It prints no values.
 
 Fix-forward options to offer: revert the attribute that forces the replacement; add a `moved` block if only the address changed; add `create_before_destroy` if two copies can exist at once; restore the data after a planned recreate, with the user's agreement.
 

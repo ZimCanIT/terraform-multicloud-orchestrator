@@ -1,7 +1,7 @@
 {
   "name": "terraform-multicloud-orchestrator",
   "version": "0.1.1",
-  "description": "Plan-only Terraform authoring companion for Azure. Designs module and state boundaries, applies Azure naming, identity, networking and secure-by-default baselines, checks arguments against the pinned azurerm version, and validates with plan-only commands; never runs apply or destroy.",
+  "description": "Plan-only Terraform authoring companion for Azure. Designs module and state boundaries, applies Azure naming, identity, networking and secure-by-default baselines, checks arguments against the pinned azurerm version, audits code against its standard and against azurerm 5 with a read-only script, explains failed plans and applies, and validates with plan-only commands; never runs apply or destroy.",
   "author": {
     "name": "Joshua Musiyarira (ZimCanIT)",
     "url": "https://zimcanit.com"

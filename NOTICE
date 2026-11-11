@@ -5,3 +5,8 @@ Attribution: the failure-mode-first methodology is inspired by TerraShark
 response-contract structure are inspired by Anton Babenko's terraform-skill
 (github.com/antonbabenko/terraform-skill, Apache-2.0). All reference content
 in this repository is original.
+
+The file assets/azurerm-5-changes.json in the skill lists resource type and
+argument names taken from the 5.0 upgrade guide of the Terraform provider for
+Azure (github.com/hashicorp/terraform-provider-azurerm, MPL-2.0). It holds
+names only, not the guide's text.

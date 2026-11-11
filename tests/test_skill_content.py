@@ -87,3 +87,18 @@ def test_reference_stack_tests_never_apply() -> None:
         plans = len(re.findall(r"^\s*command\s*=\s*plan\s*$", text, re.MULTILINE))
         assert runs > 0 and runs == plans, f"{test_file.name}: every run block must set `command = plan`"
         assert re.search(r'^mock_provider "azurerm" \{\}', text, re.MULTILINE), f"{test_file.name} must mock the provider"
+
+
+def test_pipeline_template_is_pinned_and_gated() -> None:
+    yaml = pytest.importorskip("yaml")
+    text = (SKILL / "assets/pipeline/terraform.yml").read_text(encoding="utf-8")
+    workflow = yaml.safe_load(text)
+    uses = re.findall(r"^\s*uses:\s*(\S+)", text, re.MULTILINE)
+    assert uses and all(re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", action) for action in uses), "every action must be pinned to a commit"
+    assert workflow["permissions"] == {"contents": "read"}
+    assert not re.search(r"\$\{\{\s*secrets\.", text), "the template signs in with federation and needs no secret"
+    apply = workflow["jobs"]["apply"]
+    assert apply["environment"] == "production" and apply["needs"] == "plan"
+    commands = " ".join(step.get("run", "") for step in apply["steps"])
+    assert "terraform apply -input=false -lock-timeout=5m tfplan" in commands, "the apply job must apply the saved plan"
+    assert "-auto-approve" not in text and "terraform plan" not in commands

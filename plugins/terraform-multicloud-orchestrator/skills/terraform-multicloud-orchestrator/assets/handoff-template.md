@@ -21,6 +21,7 @@
 ## Validation
 
 - Static checks: <commands run and their result | not run, and why>
+- Audit: <`tf_audit.py` counts and what remains | not run, and why>
 - Plan kind: <state-backed | none>
 - Command: <exact plan command run, or "none">
 - Add / change / destroy: <counts>

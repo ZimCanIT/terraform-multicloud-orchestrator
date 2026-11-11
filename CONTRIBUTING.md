@@ -92,6 +92,28 @@ To run the same checks locally, from a copy of that directory:
 bash /path/to/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/validate.sh --static
 ```
 
+## Audit script and upgrade data
+
+`plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/tf_audit.py` is a read-only audit of `.tf` files against the rules in `SKILL.md` section 3. It uses only the Python standard library. `tests/test_tf_audit.py` covers it:
+
+```bash
+python -m pytest tests/test_tf_audit.py -q
+```
+
+- The reference stack must pass the audit with no findings. A test fails if it does not, so a new rule that the stack breaks means the rule or the stack is wrong.
+- When you add a check, add the code that breaks it to the bad configuration in the test file and the finding to `EXPECTED`.
+- The script judges literal values only. Do not make it guess at expressions: a wrong finding costs more trust than a missed one.
+- `plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/plan_review.py` reads plan JSON and must never print an attribute value. `tests/test_plan_review.py` checks that, and that its stop list matches the one in `references/azurerm-provider.md`.
+
+`plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/assets/azurerm-5-changes.json` lists the resource types and arguments that the `azurerm` 5.0 upgrade guide removes or renames. It holds names only. To rebuild it for a later release, download the guide at the release tag and run the extractor:
+
+```bash
+curl -sSLo guide.md https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/v5.13.0/website/docs/guides/5.0-upgrade-guide.html.markdown
+python scripts/extract_azurerm_changes.py guide.md plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/assets/azurerm-5-changes.json v5.13.0
+```
+
+The extractor prints how many bullets it could not classify. Read those in the guide: they are behaviour changes that a name check cannot find.
+
 ## Conventional Commits
 
 Commit and PR titles use a type: feat, fix, docs, ci, chore, test or refactor. release-please reads them to choose the next version. While the version is below 1.0:

@@ -2,13 +2,14 @@
 
 A small root module and three reusable modules written to the standard in `SKILL.md` §3. Copy the patterns, not the files: a real stack has its own resources, names and inputs.
 
-CI runs `terraform init -backend=false`, `terraform validate` and `terraform fmt -check -recursive` on this directory, then validates each module on its own and runs its tests (`.github/workflows/terraform-fixture.yml`). The arguments here are therefore valid for the provider version that `versions.tf` pins. The stack is never planned against Azure or applied, and no lock file is committed because it is not a deployment.
+CI runs `terraform init -backend=false`, `terraform validate` and `terraform fmt -check -recursive` on this directory, then validates each module on its own and runs its tests (`.github/workflows/terraform-fixture.yml`). The arguments here are therefore valid for the provider version that `versions.tf` pins. A repository test also runs `scripts/tf_audit.py` on the stack and requires no findings. The stack is never planned against Azure or applied, and no lock file is committed because it is not a deployment.
 
 ## What it shows
 
 | Where | Rule | Pattern |
 |---|---|---|
 | `versions.tf`, `providers.tf`, `backend.tf` | ST1, ST2, AZ8 | Pins, provider configuration and an Entra ID backend live in the root only; the subscription is an input |
+| `environments/prod.backend.hcl.example` | ST2, ST3 | Backend settings per environment, kept out of `backend.tf`; one container per stack and environment |
 | `modules/storage_account/versions.tf` | ST1 | A reusable module states a minimum provider version and configures nothing |
 | `variables.tf` | MD3, MD4 | Typed inputs with descriptions and validation; an optional feature as an object that may be null |
 | `locals.tf` | HC2, HC3, AZ7 | Names and tags built once; mandatory tags cannot be overridden |

@@ -93,7 +93,7 @@ Read every line marked `# forces replacement`, and apply the stop-and-confirm ru
 ## Upgrade the provider by a major version
 
 1. On the current major, move to its last release and clear every deprecation warning. Plan must be clean before you start.
-2. Read the upgrade guide for the target major in the registry's guides. List the renamed arguments, removed resources and changed defaults that this repository uses.
+2. Read the upgrade guide for the target major in the registry's guides. List the renamed arguments, removed resources and changed defaults that this repository uses. For the move to `azurerm` 5, `scripts/tf_audit.py` finds the removed resource types and arguments for you (rule AZ8); changed defaults still need the guide.
 3. In a pull request that contains nothing else: raise the constraint to the newest release of the target major, and fix the code. The user runs `terraform init -upgrade`, which rewrites the lock file.
 4. Plan. The target is no changes. Every proposed change is either a rename you missed or a changed default: set the old value explicitly to keep behaviour, and change behaviour later in its own pull request.
 5. One major at a time, one stack at a time, least critical stack first. Reusable modules widen their minimum only after every root that uses them has moved.

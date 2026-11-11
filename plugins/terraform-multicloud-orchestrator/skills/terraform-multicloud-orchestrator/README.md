@@ -28,9 +28,14 @@ references/
   secure-baseline.md  networking.md  identity-and-secrets.md       # Azure platform
   state-and-environments.md  azurerm-provider.md                   # state and providers
   adopt-and-refactor.md  testing-and-delivery.md                   # change and delivery
+  troubleshooting.md  playbooks.md                                 # errors, and steps per request
 assets/
   review-checklist.md  handoff-template.md
-  reference-stack/           # a root and a module written to the standard, validated in CI
+  reference-stack/           # a root and three modules written to the standard, validated in CI
+  pipeline/terraform.yml     # a plan-and-apply pipeline for GitHub Actions to adapt
+  azurerm-5-changes.json     # names the azurerm 5.0 upgrade guide removes or renames
+scripts/tf_audit.py          # read-only audit against the standard and against azurerm 5
+scripts/plan_review.py       # reads plan JSON: deletions, replacements and what forces them
 scripts/validate.sh          # the plan-only validation chain for humans and CI
 ```
 
@@ -54,9 +59,16 @@ terraform show -json tfplan | jq -r '.resource_changes[]? | select(.change.actio
 
 `scripts/validate.sh` runs the same two steps for humans and CI. Pass `--static` or `--plan` to run just one, `--fail-on-delete` to exit with status 3 when anything is deleted or replaced, and `--keep-json` to keep `plan_output.json` (it is otherwise removed on exit). `tfplan` holds plan values in cleartext, so keep it out of version control.
 
+To audit existing code against the standard, run the read-only audit script. It needs Python 3.9 or later and no Terraform:
+
+```bash
+python3 scripts/tf_audit.py path/to/terraform
+python3 scripts/tf_audit.py --rules AZ8 path/to/terraform   # only what azurerm 5 breaks
+```
+
 ## Compatibility
 
-Designed for Claude Code, Codex, and Agent Skills-compatible coding agents. Requires the Terraform or OpenTofu CLI and jq for validation, internet access for provider/module downloads, and Azure credentials only when plan commands need them.
+Designed for Claude Code, Codex, and Agent Skills-compatible coding agents. Requires the Terraform or OpenTofu CLI and jq for validation, Python 3.9 or later for the audit and plan scripts, internet access for provider/module downloads, and Azure credentials only when plan commands need them.
 
 ## Validating this skill
 

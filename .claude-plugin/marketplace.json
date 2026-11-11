@@ -15,7 +15,7 @@
     {
       "name": "terraform-multicloud-orchestrator",
       "source": "./plugins/terraform-multicloud-orchestrator",
-      "description": "Plan-only Terraform authoring companion for Azure: module and state design, Azure naming, identity, networking and secure-by-default baselines, checked against the pinned azurerm version.",
+      "description": "Plan-only Terraform authoring companion for Azure: module and state design, Azure naming, identity, networking and secure-by-default baselines, a read-only audit script with an azurerm 5 upgrade check, and troubleshooting for failed plans.",
       "category": "infrastructure"
     }
   ]

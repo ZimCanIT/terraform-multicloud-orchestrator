@@ -1,7 +1,7 @@
 {
   "name": "terraform-multicloud-orchestrator",
   "version": "0.1.1",
-  "description": "Plan-only Terraform authoring companion for Azure. Writes, reviews and refactors azurerm and azapi code to a stated standard and validates it without applying.",
+  "description": "Plan-only Terraform authoring companion for Azure. Writes, reviews, audits and refactors azurerm and azapi code to a stated standard and validates it without applying.",
   "author": {
     "name": "Joshua Musiyarira (ZimCanIT)",
     "url": "https://zimcanit.com"
@@ -24,7 +24,7 @@
   "interface": {
     "displayName": "Terraform Authoring Companion for Azure",
     "shortDescription": "Plan-only Terraform authoring and review for Azure.",
-    "longDescription": "Writes, reviews and refactors Terraform for Azure to a stated standard: module and state boundaries, typed interfaces, Azure naming and tagging, managed identities, private networking and secure defaults. Checks arguments against the pinned azurerm version and validates with plan-only commands; never applies or destroys infrastructure.",
+    "longDescription": "Writes, reviews and refactors Terraform for Azure to a stated standard: module and state boundaries, typed interfaces, Azure naming and tagging, managed identities, private networking and secure defaults. Audits existing code with a read-only script, checks readiness for azurerm 5, reads plans for replacements, explains failed plans and applies, and validates with plan-only commands; never applies or destroys infrastructure.",
     "developerName": "Joshua Musiyarira (ZimCanIT)",
     "category": "Developer Tools",
     "capabilities": [
@@ -35,8 +35,8 @@
     "websiteURL": "https://github.com/ZimCanIT/terraform-multicloud-orchestrator",
     "defaultPrompt": [
       "Author a private storage account module for Azure.",
-      "Review this Azure Terraform against the standard.",
-      "Import these Azure resources without replacing them."
+      "Audit this Azure Terraform against the standard.",
+      "Check this repository's readiness for azurerm 5."
     ],
     "brandColor": "#1F6FEB"
   }

@@ -1,8 +1,8 @@
 ---
 name: terraform-multicloud-orchestrator
-description: Use when writing, reviewing, refactoring or importing Terraform or OpenTofu for Microsoft Azure — the azurerm and azapi providers, Azure Verified Modules, .tf files that deploy Azure resources, the azurerm state backend, provider upgrades, and bringing existing Azure resources under Terraform. Pairs on the code like a senior Azure platform engineer — designs module and state boundaries, applies Azure naming, tagging, identity, networking and secure-by-default baselines, checks every argument against the pinned provider version, reviews its own output against a checklist, and validates with plan-only commands. Never runs apply or destroy. Trigger whenever Terraform or infrastructure as code for Azure is mentioned (resource groups, VNets, AKS, storage accounts, Key Vault, managed identities, private endpoints, landing zones), even if the skill is not named. Not for AWS, GCP or OCI.
+description: Use when writing, reviewing, auditing, refactoring, importing or troubleshooting Terraform or OpenTofu for Microsoft Azure — the azurerm and azapi providers, Azure Verified Modules, .tf files that deploy Azure resources, the azurerm state backend, the azurerm 5 upgrade, failed plans and applies, and bringing existing Azure resources under Terraform. Designs module and state boundaries, applies Azure naming, tagging, identity, networking and secure-by-default baselines, checks every argument against the pinned provider version, audits code against its standard with a read-only script, and validates with plan-only commands. Never runs apply or destroy. Trigger whenever Terraform or infrastructure as code for Azure is mentioned (resource groups, VNets, AKS, storage accounts, Key Vault, managed identities, private endpoints, landing zones, azurerm errors), even if the skill is not named. Not for AWS, GCP or OCI.
 license: MIT
-compatibility: Designed for Claude Code, Codex, and Agent Skills-compatible coding agents. Requires the Terraform or OpenTofu CLI and jq for validation, internet access for provider documentation and module/provider downloads, and Azure credentials only when plan commands need them.
+compatibility: Designed for Claude Code, Codex, and Agent Skills-compatible coding agents. Requires the Terraform or OpenTofu CLI and jq for validation, Python 3.9 or later for the audit and plan scripts, internet access for provider documentation and module/provider downloads, and Azure credentials only when plan commands need them.
 metadata:
   author: Joshua Musiyarira (ZimCanIT)
   version: "0.1.1" # x-release-please-version
@@ -108,6 +108,8 @@ Every rule has an ID so that a review can cite it. The reference files hold the 
 3. **Check the schema** (AZ8). Open the registry page for each resource type you are not certain of, at the pinned version. After a major upgrade, treat every remembered argument as unverified.
 4. **Write the code** to §3. When the user asked for an implementation, write the files; when they asked for a design or a review, show the code in the reply.
 5. **Review your own output** against `assets/review-checklist.md` before you show it. Fix what fails. Anything you could not satisfy goes in the hand-off with the reason.
+
+   Run the audit first when the user allows it: `python3 <skill directory>/scripts/tf_audit.py <directory>`. It reads the `.tf` and `.tfvars` files and reports what breaks the standard by rule ID, file and line, including secret-looking values in variable files and names that `azurerm` 5 removed. It is read-only, but it is not under PERMITTED, so state the command and wait for approval. A clean report is not a review: the script judges literal values only, and the checklist covers the rest.
 6. **Validate.** The commands below are the exact forms listed under PERMITTED, so they need no extra approval, except the `jq` filter, which the user approves once, and a `-var-file` argument (see below).
 
    Static checks, which need no state or credentials:
@@ -130,6 +132,8 @@ Every rule has an ID so that a review can cite it. The reference files hold the 
 
    Where inputs come from a per-environment file (ST3), the plan needs `-var-file=environments/<env>.tfvars`. That form is not under PERMITTED: state the exact command, for example `terraform plan -input=false -var-file=environments/dev.tfvars -out=tfplan`, and wait for the user to approve or run it. Do not copy the file to `terraform.tfvars` or `*.auto.tfvars` to avoid the approval.
 
+   `scripts/plan_review.py` reads the same JSON and says more: which attributes force each replacement, which types are on the stop list, and what the plan moves, imports and forgets. It prints no values. Once the user approves the command, pipe the plan to it: `terraform show -json tfplan | python3 <skill directory>/scripts/plan_review.py -`.
+
    `scripts/validate.sh` runs the same two steps for people and pipelines. `--static` or `--plan` runs one; `--fail-on-delete` exits 3 when the plan deletes or replaces anything; `--keep-json` keeps `plan_output.json`, which is otherwise removed on exit. The script is not pre-approved for the agent: run the commands above directly, or let the user approve the script.
 7. **Hand off** with `assets/handoff-template.md`. **Never** proceed to apply.
 
@@ -150,13 +154,18 @@ Load a reference only when the task needs it. For a small edit to existing code,
 | Provider versions, renamed arguments, `azapi`, what forces a replacement, the stop list | `references/azurerm-provider.md` |
 | Importing existing resources, renames, `count` to `for_each`, state splits, provider upgrades | `references/adopt-and-refactor.md` |
 | Tests, policy checks, pipelines, evidence | `references/testing-and-delivery.md` |
-| Reviewing code, yours or the user's | `assets/review-checklist.md` |
+| Reviewing code, yours or the user's | `assets/review-checklist.md`, `scripts/tf_audit.py` |
+| Reading a plan for deletions, replacements, moves and imports | `scripts/plan_review.py`, `references/azurerm-provider.md` |
+| A failed plan or apply, or an error message from Azure | `references/troubleshooting.md` |
+| Checking a repository's readiness for `azurerm` 5 | `scripts/tf_audit.py`, `references/azurerm-provider.md` |
+| The steps for a kind of request, start to finish | `references/playbooks.md` |
+| A plan-and-apply pipeline to hand over | `assets/pipeline/terraform.yml`, `references/testing-and-delivery.md` |
 
 ---
 
 ## 6. Reviewing existing code
 
-When asked to review Terraform for Azure, do not rewrite it. Report findings, most severe first. Each finding gives the rule ID from §3, the file and line, what goes wrong on Azure because of it, and the fix as a small diff. Use three levels: **blocker** (data loss, a secret exposed, public exposure, shared production state), **major** (breaks ST, MD or AZ rules in a way that will cost later) and **minor** (style and consistency). Finish with what the code already does well and the one change you would make first. `assets/review-checklist.md` is the list to walk.
+When asked to review Terraform for Azure, do not rewrite it. Start with the audit script when the user allows it (§4, step 5), and confirm each of its findings in the code before you report it. Report findings, most severe first. Each finding gives the rule ID from §3, the file and line, what goes wrong on Azure because of it, and the fix as a small diff. Use three levels: **blocker** (data loss, a secret exposed, public exposure, shared production state), **major** (breaks ST, MD or AZ rules in a way that will cost later) and **minor** (style and consistency). Finish with what the code already does well and the one change you would make first. `assets/review-checklist.md` is the list to walk.
 
 A finding looks like this:
 
@@ -222,12 +231,18 @@ References (load on demand, §5):
 - `references/azurerm-provider.md` — provider configuration, renamed arguments, `azapi`, what forces a replacement, the stop list.
 - `references/adopt-and-refactor.md` — import, `moved`, `removed`, state splits, provider upgrades.
 - `references/testing-and-delivery.md` — the validation ladder, policy checks, pipelines, evidence.
+- `references/troubleshooting.md` — what a failed plan or apply means and how to fix it in code.
+- `references/playbooks.md` — the steps and the finish line for each common kind of request.
 
 Assets and scripts:
 
 - `assets/review-checklist.md` — the checklist for self-review and code review.
 - `assets/handoff-template.md` — the hand-off structure.
 - `assets/reference-stack/` — a small root and three modules (storage account, Key Vault, virtual network) written to this standard, with plan-mode tests; validated and tested in CI.
+- `assets/azurerm-5-changes.json` — the resource types and arguments that the `azurerm` 5.0 upgrade guide removes or renames.
+- `assets/pipeline/terraform.yml` — a plan-and-apply pipeline for GitHub Actions to adapt.
+- `scripts/tf_audit.py` — a read-only audit of `.tf` files against the standard and against `azurerm` 5.
+- `scripts/plan_review.py` — reads plan JSON: what is deleted or replaced, what forces it, what is on the stop list. Prints no values.
 - `scripts/validate.sh` — the plan-only validation chain.
 
 ## Attribution & licence

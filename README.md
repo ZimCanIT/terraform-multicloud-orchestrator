@@ -58,7 +58,11 @@ Otherwise, copy that folder into the agent's skills directory. For Claude Code, 
 ## How it works
 
 - **A standard with rule IDs.** `SKILL.md` §3 lists 26 rules in four groups: structure and state, modules and interfaces, language, and the Azure platform. The code it writes follows them, and a review cites them by ID.
-- **References by task.** Ten reference files load only when the task needs them: HCL standards, module design, naming and tagging, the secure baseline by resource type, networking, identity and secrets, state and environments, the providers, adopting and refactoring existing resources, and testing and delivery.
+- **References by task.** Twelve reference files load only when the task needs them: HCL standards, module design, naming and tagging, the secure baseline by resource type, networking, identity and secrets, state and environments, the providers, adopting and refactoring existing resources, testing and delivery, troubleshooting, and playbooks.
+- **An audit script.** `scripts/tf_audit.py` reads `.tf` and `.tfvars` files and reports what breaks the standard by rule ID, file and line: literal secrets, public access, missing guards, and the names that `azurerm` 5 removed or renamed. It is read-only and runs no Terraform command; the one program it starts is `git ls-files`, to see whether a tfvars file is tracked. See [Audit a repository](#audit-a-repository).
+- **A plan reader.** `scripts/plan_review.py` reads plan JSON and reports what the plan deletes, replaces, moves, imports and forgets, which attributes force each replacement, and which resources are on the stop list. It never prints a value.
+- **Troubleshooting and playbooks.** One reference maps the common plan and apply errors on Azure to their cause and the fix in code. Another gives the steps and the finish line for each kind of request.
+- **A pipeline to adapt.** `assets/pipeline/terraform.yml` is a plan-and-apply workflow for GitHub Actions: federated sign-in, a gate on deletions, and an approved apply of the saved plan.
 - **Checked against the provider.** Argument names change between `azurerm` majors. The skill uses the version the repository pins and checks arguments against the registry page for that version.
 - **A reference stack.** `assets/reference-stack/` is a small root module with three reusable modules (a storage account, a Key Vault and a virtual network) written to the standard. CI runs `terraform validate` and the modules' plan-mode tests on it.
 - **Reads first, asks little.** It follows the conventions already in the repository and asks only for what blocks correct code, once.
@@ -71,6 +75,42 @@ Otherwise, copy that folder into the agent's skills directory. For Claude Code, 
 - "Review `modules/network` against your standard. Blockers first."
 - "Bring the resources in `rg-legacy-prod` under Terraform without replacing anything."
 - "Upgrade this stack from azurerm 4 to 5."
+- "Audit this repository against your standard."
+- "The apply failed with `RequestDisallowedByPolicy`. What do I change?"
+
+## Audit a repository
+
+The audit script needs only Python 3.9 or later. It reads files and prints findings; it changes nothing.
+
+```bash
+audit=plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/tf_audit.py
+python3 "$audit" path/to/terraform                          # everything, most severe first
+python3 "$audit" --rules AZ8 path/to/terraform              # only what azurerm 5 breaks
+python3 "$audit" --json --fail-on major path/to/terraform   # for a pipeline
+```
+
+```text
+blocker AZ2   main.tf:63  azurerm_mssql_server.sql: administrator_login_password is a literal in code. Remove it and rotate the value.
+major   HC1   main.tf:33  azurerm_resource_group.rg: count over a list renumbers instances when one is removed. Use for_each over a map.
+minor   AZ8   main.tf:57  azurerm_key_vault.kv: Before upgrading to azurerm 5: enable_rbac_authorization was removed in azurerm 5.0. Use rbac_authorization_enabled.
+```
+
+It judges literal values only, so a clean report is not a review: a value that comes from a variable is never flagged. To accept a finding, put `# tf-audit:ignore=<rule ID> <reason>` on the line above it. A suppression without a reason is itself reported.
+
+To read a plan for what it deletes or replaces, and why:
+
+```bash
+terraform show -json tfplan | python3 plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/plan_review.py -
+```
+
+```text
+STOP  replace azurerm_storage_account.this  [azurerm_storage_account]  (holds data)
+          forced by: name
+          reason: replace_because_cannot_update
+1 to delete or replace (1 on the stop list). Create 0, update 2, delete 0, replace 1.
+```
+
+In Claude Code neither script is pre-approved: the skill states the command and waits for you to allow it.
 
 ## Safety
 
@@ -180,9 +220,11 @@ plugins/terraform-multicloud-orchestrator/
 ├── .codex-plugin/plugin.json
 └── skills/terraform-multicloud-orchestrator/
     ├── SKILL.md                     workflow, guardrails, the authoring standard
-    ├── references/                  10 task references for Azure
-    ├── assets/                      review checklist, hand-off template, reference stack
-    └── scripts/validate.sh          static and plan validation chain
+    ├── references/                  12 task references for Azure
+    ├── assets/                      review checklist, hand-off template, reference stack,
+    │                                pipeline template, azurerm 5 change data
+    └── scripts/                     tf_audit.py (read-only audit), plan_review.py (plan reader),
+                                     validate.sh (plan-only chain)
 scripts/                             repository validators
 tests/                               validator tests and the CI fixture
 ```
