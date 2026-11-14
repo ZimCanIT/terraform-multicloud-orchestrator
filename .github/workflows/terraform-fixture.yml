@@ -31,7 +31,7 @@ jobs:
       - name: Check the replacement gate against the fixture
         shell: bash
         env:
-          SKILL_DIR: plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
+          SKILL_DIR: plugins/azure-tf-author/skills/azure-tf-author
           FIXTURE_DIR: tests/fixtures/terraform-data
         run: |
           set -euo pipefail
@@ -97,7 +97,7 @@ jobs:
       - name: Validate the skill's reference stack
         shell: bash
         env:
-          STACK_DIR: plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/assets/reference-stack
+          STACK_DIR: plugins/azure-tf-author/skills/azure-tf-author/assets/reference-stack
         run: |
           set -euo pipefail
           work="$(mktemp -d "${RUNNER_TEMP}/reference-stack.XXXXXX")"

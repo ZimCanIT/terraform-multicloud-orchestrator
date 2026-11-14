@@ -13,8 +13,8 @@
   },
   "plugins": [
     {
-      "name": "terraform-multicloud-orchestrator",
-      "source": "./plugins/terraform-multicloud-orchestrator",
+      "name": "azure-tf-author",
+      "source": "./plugins/azure-tf-author",
       "description": "Plan-only Terraform authoring companion for Azure: module and state design, Azure naming, identity, networking and secure-by-default baselines, checked against the pinned azurerm version.",
       "category": "infrastructure"
     }

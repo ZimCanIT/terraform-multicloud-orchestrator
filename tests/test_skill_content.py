@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parent.parent
-SKILL = REPO / "plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator"
+SKILL = REPO / "plugins/azure-tf-author/skills/azure-tf-author"
 SKILL_MD = SKILL / "SKILL.md"
 STACK = SKILL / "assets/reference-stack"
 
@@ -38,6 +38,24 @@ def test_readme_states_the_real_rule_count() -> None:
     match = re.search(r"lists (\d+) rules", (REPO / "README.md").read_text(encoding="utf-8"))
     assert match, "README.md no longer states how many rules SKILL.md lists"
     assert int(match.group(1)) == len(defined_rules())
+
+
+def permitted_forms() -> list[str]:
+    text = SKILL_MD.read_text(encoding="utf-8")
+    line = next(line for line in text.splitlines() if "PERMITTED (exact forms):" in line)
+    return [t for t in re.findall(r"`([^`]+)`", line) if t.startswith(("terraform ", "tofu "))]
+
+
+def test_permitted_forms_are_exemplified_in_the_workflow() -> None:
+    """§2 holds the single PERMITTED canon; §4 must show exactly the same forms."""
+    text = SKILL_MD.read_text(encoding="utf-8")
+    workflow = text[text.index("## 4. Workflow") : text.index("## 5. ")]
+    for form in permitted_forms():
+        pattern = re.escape(form).replace(re.escape("<env>"), "[a-z0-9-]+")
+        assert re.search(pattern, workflow), (
+            f"PERMITTED form `{form}` does not appear in the §4 workflow examples; "
+            "update §2 or §4 so the two lists cannot drift"
+        )
 
 
 @pytest.mark.parametrize("path", markdown_files(), ids=lambda path: path.relative_to(SKILL).as_posix())

@@ -39,7 +39,7 @@ python -m pip install skills-ref==0.1.1
 Then validate the skill:
 
 ```bash
-agentskills validate plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
+agentskills validate plugins/azure-tf-author/skills/azure-tf-author
 ```
 
 This validates Agent Skills frontmatter, naming, and portable package structure. CI runs the same pinned check on pull requests and on pushes to main (`.github/workflows/skill-validation.yml`), so the gate is enforced, not just documented.
@@ -79,17 +79,17 @@ This checks that every version field matches the manifest, so a field that relea
 Run from a Terraform root directory. `--static` runs the checks that need no state or credentials, `--plan` runs the state-backed plan and lists anything it deletes or replaces, and no flag runs both:
 
 ```bash
-bash /path/to/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/validate.sh --static
+bash /path/to/plugins/azure-tf-author/skills/azure-tf-author/scripts/validate.sh --static
 ```
 
 ## Reference stack
 
-`plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/assets/reference-stack/` is real Terraform that the skill points to as its worked example. The `reference-stack` job in `.github/workflows/terraform-fixture.yml` copies it to a scratch directory and runs `terraform init -backend=false`, `terraform validate` and `terraform fmt -check -recursive` against the provider version it pins. It then validates each module on its own and runs its tests with `terraform test`; they use plan mode and a mocked provider, so they need no credentials and create nothing. The stack is never planned against Azure or applied. When you change an argument in a reference file, make the same change in the stack so that CI checks it.
+`plugins/azure-tf-author/skills/azure-tf-author/assets/reference-stack/` is real Terraform that the skill points to as its worked example. The `reference-stack` job in `.github/workflows/terraform-fixture.yml` copies it to a scratch directory and runs `terraform init -backend=false`, `terraform validate` and `terraform fmt -check -recursive` against the provider version it pins. It then validates each module on its own and runs its tests with `terraform test`; they use plan mode and a mocked provider, so they need no credentials and create nothing. The stack is never planned against Azure or applied. When you change an argument in a reference file, make the same change in the stack so that CI checks it.
 
 To run the same checks locally, from a copy of that directory:
 
 ```bash
-bash /path/to/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/scripts/validate.sh --static
+bash /path/to/plugins/azure-tf-author/skills/azure-tf-author/scripts/validate.sh --static
 ```
 
 ## Conventional Commits

@@ -7,7 +7,7 @@ Plan-only skill that writes, reviews and refactors Terraform for **Azure** (`azu
 - Version: `0.2.0` <!-- x-release-please-version --> · License: MIT
 - Authoritative spec: [`SKILL.md`](./SKILL.md)
 
-The skill keeps the name `terraform-multicloud-orchestrator` so that existing installs keep working. It covers Azure only.
+Formerly `terraform-multicloud-orchestrator`: the skill was refocused on Azure and renamed. Existing installs of the old name keep working, but new installs should use `azure-tf-author`.
 
 ## When it activates
 
@@ -15,7 +15,7 @@ Whenever Terraform or OpenTofu for Azure comes up: writing, reviewing, refactori
 
 ## Safety (plan-only)
 
-- **Permitted (exact forms, terraform and tofu):** `init -backend=false -input=false`, `init -input=false`, `validate`, `fmt -check -recursive`, `plan -input=false -out=tfplan`, `show -json tfplan`, `providers`, `providers schema -json`, `state list`. Reading plan JSON with `jq` needs your approval.
+- **Permitted (exact forms, terraform and tofu):** `init -backend=false -input=false`, `init -input=false`, `validate`, `fmt -check -recursive`, `plan -input=false -out=tfplan`, `plan -input=false -var-file=environments/<env>.tfvars -out=tfplan`, `show -json tfplan`, `providers`, `providers schema -json`, `state list`. Reading plan JSON with `jq` needs your approval.
 - **Forbidden:** any other `terraform` or `tofu` subcommand, including `apply`, `destroy`, any auto-approve flag, `test`, `taint`, `refresh`, and state-mutating operations (`import`, `state mv`/`rm`/`push`, `force-unlock`). The skill *proposes* these; you run them manually.
 - In Claude Code the `allowed-tools` frontmatter is scoped to the permitted commands. `allowed-tools` grants, it does not block. `deny` rules in your settings are a guard rail that matches only the command text; for a stop that holds, use credentials that cannot write, a hook or a sandbox (see the repository README).
 
