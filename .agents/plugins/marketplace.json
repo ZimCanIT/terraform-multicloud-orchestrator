@@ -5,10 +5,10 @@
   },
   "plugins": [
     {
-      "name": "terraform-multicloud-orchestrator",
+      "name": "azure-tf-author",
       "source": {
         "source": "local",
-        "path": "./plugins/terraform-multicloud-orchestrator"
+        "path": "./plugins/azure-tf-author"
       },
       "policy": {
         "installation": "AVAILABLE",

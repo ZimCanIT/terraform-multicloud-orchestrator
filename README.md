@@ -6,13 +6,13 @@ It works the way a senior platform engineer pairs on infrastructure code. It rea
 
 `apply` and `destroy` are restricted. The skill never runs them and never pre-approves them. See [Safety](#safety).
 
-> The plugin, the skill and this repository keep the name `terraform-multicloud-orchestrator`, so existing installs and release tags keep working. The skill now covers Azure only: AWS, GCP and OCI are out of scope.
+> Formerly `terraform-multicloud-orchestrator`: the skill was refocused on Azure and renamed to `azure-tf-author`. GitHub redirects the old repository URL, and existing installs of the old name keep working, but new installs should use the new name. AWS, GCP and OCI are out of scope.
 
 This repository ships three things:
 
 - **A Claude Code plugin marketplace.** Add it once, then install the plugin.
 - **A Codex plugin package.** The plugin includes `.codex-plugin/plugin.json` and a bundled `skills/` folder.
-- **A portable Agent Skill.** The `skills/terraform-multicloud-orchestrator/` folder is self-contained: `SKILL.md`, references, scripts and assets.
+- **A portable Agent Skill.** The `skills/azure-tf-author/` folder is self-contained: `SKILL.md`, references, scripts and assets.
 
 ## Install
 
@@ -21,8 +21,8 @@ This repository ships three things:
 Run these inside Claude Code:
 
 ```text
-/plugin marketplace add ZimCanIT/terraform-multicloud-orchestrator
-/plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
+/plugin marketplace add ZimCanIT/azure-tf-author
+/plugin install azure-tf-author@zimcanit-marketplace
 ```
 
 Restart Claude Code after installing. To get later releases, run `/plugin marketplace update zimcanit-marketplace`.
@@ -30,19 +30,19 @@ Restart Claude Code after installing. To get later releases, run `/plugin market
 In a terminal, outside Claude Code, run these two commands:
 
 ```bash
-claude plugin marketplace add ZimCanIT/terraform-multicloud-orchestrator
-claude plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
+claude plugin marketplace add ZimCanIT/azure-tf-author
+claude plugin install azure-tf-author@zimcanit-marketplace
 ```
 
 Inside Claude Code, use the `/plugin` commands above instead. Typing `claude plugin` at the Claude Code prompt sends it to the model as plain text, not a command.
 
-For a local checkout, replace `ZimCanIT/terraform-multicloud-orchestrator` with the path to the repository root, for example `~/src/terraform-multicloud-orchestrator`.
+For a local checkout, replace `ZimCanIT/azure-tf-author` with the path to the repository root, for example `~/src/azure-tf-author`.
 
 ### Codex
 
 ```bash
-codex plugin marketplace add ZimCanIT/terraform-multicloud-orchestrator
-codex plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
+codex plugin marketplace add ZimCanIT/azure-tf-author
+codex plugin install azure-tf-author@zimcanit-marketplace
 ```
 
 ### Other Agent Skills agents
@@ -50,7 +50,7 @@ codex plugin install terraform-multicloud-orchestrator@zimcanit-marketplace
 If your agent can load a skill from a URL, give it the skill folder:
 
 ```text
-load this skill https://github.com/ZimCanIT/terraform-multicloud-orchestrator/tree/main/plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
+load this skill https://github.com/ZimCanIT/azure-tf-author/tree/main/plugins/azure-tf-author/skills/azure-tf-author
 ```
 
 Otherwise, copy that folder into the agent's skills directory. For Claude Code, that is `~/.claude/skills/`. Skill paths change between agent releases, so check your agent's documentation.
@@ -160,13 +160,15 @@ pre-commit run --all-files
 
 ```bash
 python -m pip install skills-ref==0.1.1   # provides the agentskills CLI
-agentskills validate plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator
+agentskills validate plugins/azure-tf-author/skills/azure-tf-author
 python scripts/validate_codex_plugin.py
 python scripts/validate_skill_frontmatter.py
 python scripts/validate_versions.py
 ```
 
 CI runs `agentskills validate` (`.github/workflows/skill-validation.yml`) and the full pre-commit set (`.github/workflows/pre-commit.yml`) on every push to `main` and on every pull request.
+
+On Windows, run `scripts/validate.sh` and the pre-commit hooks from Git Bash or WSL — they are bash scripts. The `terraform` and `tofu` CLIs run natively on Windows; install `jq` with `winget install jqlang.jq` (or `scoop install jq`) and make sure everything is on the `PATH` that Git Bash sees.
 
 Releases are automated with release-please, so write commit messages in Conventional Commit style. See [CONTRIBUTING.md](CONTRIBUTING.md) for the rest.
 
@@ -175,10 +177,10 @@ Releases are automated with release-please, so write commit messages in Conventi
 ```text
 .claude-plugin/marketplace.json      Claude Code marketplace catalog
 .agents/plugins/marketplace.json     Codex marketplace catalog
-plugins/terraform-multicloud-orchestrator/
+plugins/azure-tf-author/
 ├── .claude-plugin/plugin.json
 ├── .codex-plugin/plugin.json
-└── skills/terraform-multicloud-orchestrator/
+└── skills/azure-tf-author/
     ├── SKILL.md                     workflow, guardrails, the authoring standard
     ├── references/                  10 task references for Azure
     ├── assets/                      review checklist, hand-off template, reference stack

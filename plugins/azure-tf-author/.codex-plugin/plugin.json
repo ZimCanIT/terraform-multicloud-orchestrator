@@ -1,13 +1,13 @@
 {
-  "name": "terraform-multicloud-orchestrator",
+  "name": "azure-tf-author",
   "version": "0.2.0",
   "description": "Plan-only Terraform authoring companion for Azure. Writes, reviews and refactors azurerm and azapi code to a stated standard and validates it without applying.",
   "author": {
     "name": "Joshua Musiyarira (ZimCanIT)",
     "url": "https://zimcanit.com"
   },
-  "homepage": "https://github.com/ZimCanIT/terraform-multicloud-orchestrator",
-  "repository": "https://github.com/ZimCanIT/terraform-multicloud-orchestrator",
+  "homepage": "https://github.com/ZimCanIT/azure-tf-author",
+  "repository": "https://github.com/ZimCanIT/azure-tf-author",
   "license": "MIT",
   "keywords": [
     "terraform",
@@ -32,7 +32,7 @@
       "Review",
       "Validate"
     ],
-    "websiteURL": "https://github.com/ZimCanIT/terraform-multicloud-orchestrator",
+    "websiteURL": "https://github.com/ZimCanIT/azure-tf-author",
     "defaultPrompt": [
       "Author a private storage account module for Azure.",
       "Review this Azure Terraform against the standard.",

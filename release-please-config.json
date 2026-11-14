@@ -5,17 +5,17 @@
   "bump-patch-for-minor-pre-major": true,
   "packages": {
     ".": {
-      "package-name": "terraform-multicloud-orchestrator",
+      "package-name": "azure-tf-author",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
         {
           "type": "json",
-          "path": "plugins/terraform-multicloud-orchestrator/.claude-plugin/plugin.json",
+          "path": "plugins/azure-tf-author/.claude-plugin/plugin.json",
           "jsonpath": "$.version"
         },
         {
           "type": "json",
-          "path": "plugins/terraform-multicloud-orchestrator/.codex-plugin/plugin.json",
+          "path": "plugins/azure-tf-author/.codex-plugin/plugin.json",
           "jsonpath": "$.version"
         },
         {
@@ -30,11 +30,11 @@
         },
         {
           "type": "generic",
-          "path": "plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/SKILL.md"
+          "path": "plugins/azure-tf-author/skills/azure-tf-author/SKILL.md"
         },
         {
           "type": "generic",
-          "path": "plugins/terraform-multicloud-orchestrator/skills/terraform-multicloud-orchestrator/README.md"
+          "path": "plugins/azure-tf-author/skills/azure-tf-author/README.md"
         }
       ]
     }

@@ -20,7 +20,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = Path(os.environ.get("VALIDATOR_SCRIPTS_DIR") or REPO_ROOT / "scripts")
-PLUGIN = "terraform-multicloud-orchestrator"
+PLUGIN = "azure-tf-author"
 SKILL_DIR = f"plugins/{PLUGIN}/skills/{PLUGIN}"
 RELEASE_FILES = [
     f"plugins/{PLUGIN}/.claude-plugin/plugin.json",
@@ -31,7 +31,7 @@ RELEASE_FILES = [
 ]
 SKILL_MD = """\
 ---
-name: terraform-multicloud-orchestrator
+name: azure-tf-author
 description: Use when testing the validators.
 license: MIT
 metadata:
