@@ -2,6 +2,36 @@
 
 All notable changes are documented here. Versions follow [Semantic Versioning](https://semver.org/); releases are generated automatically by [release-please](https://github.com/googleapis/release-please) from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.2.0](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/compare/terraform-multicloud-orchestrator-v0.1.1...terraform-multicloud-orchestrator-v0.2.0) (2026-11-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* the skill no longer covers AWS, GCP or OCI. The cloud and pinning questions, the SESSION CONFIG block and the five-part response contract are removed, and the reference and asset files have new names.
+* tighten plan-only guardrails
+
+### Features
+
+* add a Key Vault module and a write-only value to the reference stack ([0c3694f](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/0c3694fc48cde3519715f10f94a51bef31997a18))
+* add a virtual network module to the reference stack ([a43fa8c](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/a43fa8c941fdd28f7a3b23ff830fdd223a7773af))
+* harden the gate and the validation script ([5a27852](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/5a27852e787b430278bb4c4b8ecaf2303c44babd))
+* refocus the skill on Azure-only Terraform authoring ([bddcb71](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/bddcb713640889bac5e8e045efedde904e093a6d))
+
+
+### Bug Fixes
+
+* close the gaps found by an independent review ([6adf4a9](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/6adf4a9e69dafdab633c8daab204f741012c6b46))
+* make LICENSE detectable as MIT ([d0171f6](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/d0171f638cbd49dc8bd717687adf80520f398a2f))
+* make version and manifest validators fail loudly ([9ba2667](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/9ba2667981ed84076cd76f002f78ba57c920aaa9))
+* tighten plan-only guardrails ([804e21d](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/804e21d0b51cb9372c06f3dda9634e310b50e6f6))
+
+
+### Documentation
+
+* bring the evals documentation in line with the review fixes ([8edec76](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/8edec764f73cd3f5c1a15961288c1f03f59f33a1))
+* correct the provider notes against the 5.0 upgrade guide ([8cb174c](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/8cb174c05da72d6982a23ad3c7a1883a129ad2db))
+* document skill evals and their classification ([84059ef](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/commit/84059ef56751f0d7b64c46d85c33a191020afcc0))
+
 ## [0.1.1](https://github.com/ZimCanIT/terraform-multicloud-orchestrator/compare/terraform-multicloud-orchestrator-v0.1.0...terraform-multicloud-orchestrator-v0.1.1) (2026-10-17)
 
 
