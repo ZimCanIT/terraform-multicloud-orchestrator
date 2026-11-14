@@ -4,7 +4,7 @@ Plan-only skill that writes, reviews and refactors Terraform for **Azure** (`azu
 
 **Strictly plan-only: it never runs `apply` or `destroy`.**
 
-- Version: `0.2.0` <!-- x-release-please-version --> · License: MIT
+- Version: `0.3.0` <!-- x-release-please-version --> · License: MIT
 - Authoritative spec: [`SKILL.md`](./SKILL.md)
 
 Formerly `terraform-multicloud-orchestrator`: the skill was refocused on Azure and renamed. Existing installs of the old name keep working, but new installs should use `azure-tf-author`.
